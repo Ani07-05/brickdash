@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ employee.name }}{% endblock %}
+{% block header %}EMPLOYEE DETAILS{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    <div class="card-header">
+        <h2><i class="fas fa-user"></i> {{ employee.name }}</h2>
+        <span class="badge badge-{% if employee.is_active %}success{% else %}danger{% endif %}">
+            {% if employee.is_active %}Active{% else %}Inactive{% endif %}
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="grid-2 mb-2">
+            <div>
+                <p><strong>Employee ID:</strong> {{ employee.employee_id }}</p>
+                <p><strong>Role:</strong> {{ employee.role }}</p>
+                <p><strong>Phone:</strong> {{ employee.phone or 'N/A' }}</p>
+            </div>
+            <div>
+                <p><strong>Monthly Salary:</strong> <span class="currency">{{ employee.salary|format_currency }}</span></p>
+                <p><strong>Joined:</strong> {{ employee.joined_date|format_date }}</p>
+            </div>
+        </div>
+        
+        {% if employee.address %}
+        <div style="background: var(--bg-main); padding: 15px; border-radius: var(--radius); margin-top: 15px;">
+            <strong>Address:</strong><br>
+            {{ employee.address }}
+        </div>
+        {% endif %}
+        
+        <div class="d-flex gap-1 mt-3">
+            <a href="{{ url_for('edit_employee', id=employee.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{{ url_for('employees') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

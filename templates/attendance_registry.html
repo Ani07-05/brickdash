@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Registry{% endblock %}
+{% block header %}ATTENDANCE REGISTRY{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-calendar-check"></i> Attendance Registry</h2>
+        <div class="d-flex gap-1 align-center">
+            <input type="date" id="attendance-date" class="form-control" style="width: auto;"
+                   value="{{ selected_date.strftime('%Y-%m-%d') }}">
+            <a href="{{ url_for('attendance_records') }}" class="btn btn-info">
+                <i class="fas fa-list"></i> View Attendance
+            </a>
+            <a href="#" class="btn btn-secondary" onclick="exportAttendance()">Export</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <form method="POST" action="{{ url_for('mark_all_attendance') }}" style="display: inline;">
+                <input type="hidden" name="attendance_date" value="{{ selected_date.strftime('%d-%m-%Y') }}">
+                <input type="hidden" name="status" value="Present">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-check-double"></i> Mark all Present
+                </button>
+            </form>
+            <form method="POST" action="{{ url_for('mark_all_attendance') }}" style="display: inline;">
+                <input type="hidden" name="attendance_date" value="{{ selected_date.strftime('%d-%m-%Y') }}">
+                <input type="hidden" name="status" value="Absent">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-times-circle"></i> Mark all Absent
+                </button>
+            </form>
+        </div>
+        
+        <form method="POST" action="{{ url_for('save_attendance') }}">
+            <input type="hidden" name="attendance_date" value="{{ selected_date.strftime('%d-%m-%Y') }}">
+            
+            {% if employees %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Shift</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        {% set record = attendance_records.get(employee.id) %}
+                        <tr>
+                            <td><strong>{{ employee.name }}</strong></td>
+                            <td>
+                                <select name="shift_{{ employee.id }}" class="form-control" style="width: auto; min-width: 100px;">
+                                    <option value="Day" {% if record and record.shift == 'Day' %}selected{% endif %}>Day</option>
+                                    <option value="Night" {% if record and record.shift == 'Night' %}selected{% endif %}>Night</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="status_{{ employee.id }}" class="form-control status-select" style="width: auto; min-width: 120px;">
+                                    <option value="Present" {% if record and record.status == 'Present' %}selected{% endif %}>Present</option>
+                                    <option value="Absent" {% if record and record.status == 'Absent' %}selected{% endif %}>Absent</option>
+                                    <option value="Half-day" {% if record and record.status == 'Half-day' %}selected{% endif %}>Half-day</option>
+                                    <option value="Leave" {% if record and record.status == 'Leave' %}selected{% endif %}>Leave</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="notes_{{ employee.id }}" class="form-control" 
+                                       placeholder="notes (optional)" value="{{ record.notes if record else '' }}"
+                                       style="width: 100%; min-width: 150px;">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Attendance
+                </button>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <p>No active employees found</p>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Date picker change handler
+    document.getElementById('attendance-date').addEventListener('change', function() {
+        window.location.href = '{{ url_for("attendance_registry") }}?date=' + this.value;
+    });
+    
+    // Status select color coding
+    document.querySelectorAll('.status-select').forEach(function(select) {
+        updateStatusColor(select);
+        select.addEventListener('change', function() {
+            updateStatusColor(this);
+        });
+    });
+    
+    function updateStatusColor(select) {
+        select.style.backgroundColor = '';
+        if (select.value === 'Present') {
+            select.style.backgroundColor = '#e8f5e9';
+        } else if (select.value === 'Absent') {
+            select.style.backgroundColor = '#ffebee';
+        } else if (select.value === 'Half-day') {
+            select.style.backgroundColor = '#fff3e0';
+        }
+    }
+    
+    function exportAttendance() {
+        const date = document.getElementById('attendance-date').value;
+        alert('Export functionality coming soon for date: ' + date);
+    }
+</script>
+{% endblock %}

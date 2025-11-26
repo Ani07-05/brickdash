@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory{% endblock %}
+{% block header %}INVENTORY MANAGEMENT{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+    <!-- Current Stock -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-warehouse"></i> Current Stock</h2>
+        </div>
+        <div class="card-body">
+            {% if products %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Stock</th>
+                            <th>Unit</th>
+                            <th>Value</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr class="{% if product.stock_quantity < 100 %}low-stock{% endif %}">
+                            <td>{{ product.name }}</td>
+                            <td>{{ product.stock_quantity }}</td>
+                            <td>{{ product.unit }}</td>
+                            <td class="currency">{{ (product.price_per_unit * product.stock_quantity)|format_currency }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="openUpdateModal({{ product.id }}, '{{ product.name }}')">
+                                    Update
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-warehouse"></i>
+                <p>No products in inventory</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-history"></i> Recent Activity</h2>
+        </div>
+        <div class="card-body">
+            {% if logs %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.timestamp|format_date }}</td>
+                            <td>{{ log.product_name }}</td>
+                            <td>
+                                <span class="badge badge-{% if log.change_type == 'Addition' %}success{% else %}danger{% endif %}">
+                                    {{ log.change_type }}
+                                </span>
+                            </td>
+                            <td>{% if log.change_type == 'Addition' %}+{% else %}-{% endif %}{{ log.quantity }}</td>
+                            <td>{{ log.reason or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <p>No recent activity</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Update Inventory Modal (inline form) -->
+<div id="update-modal" class="card mt-2" style="display: none; max-width: 500px;">
+    <div class="card-header">
+        <h2><i class="fas fa-edit"></i> Update Inventory</h2>
+        <button onclick="closeUpdateModal()" class="btn btn-sm btn-secondary">&times;</button>
+    </div>
+    <div class="card-body">
+        <form id="update-form" method="POST" action="">
+            <p id="product-name" style="font-weight: bold; margin-bottom: 15px;"></p>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="change_type">Type</label>
+                    <select id="change_type" name="change_type" class="form-control" required>
+                        <option value="Addition">Addition (Restock)</option>
+                        <option value="Deduction">Deduction (Usage/Sale)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="modal-quantity" name="quantity" class="form-control" min="1" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="reason">Reason</label>
+                <input type="text" id="reason" name="reason" class="form-control" placeholder="e.g., New stock arrival, Production use">
+            </div>
+            
+            <div class="d-flex gap-1">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Stock
+                </button>
+                <button type="button" onclick="closeUpdateModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openUpdateModal(productId, productName) {
+        document.getElementById('update-modal').style.display = 'block';
+        document.getElementById('product-name').textContent = 'Product: ' + productName;
+        document.getElementById('update-form').action = '/inventory/update/' + productId;
+        document.getElementById('modal-quantity').value = '';
+        document.getElementById('reason').value = '';
+    }
+    
+    function closeUpdateModal() {
+        document.getElementById('update-modal').style.display = 'none';
+    }
+</script>
+{% endblock %}

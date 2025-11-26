@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if order %}Edit{% else %}New{% endif %} Order{% endblock %}
+{% block header %}{% if order %}EDIT ORDER{% else %}NEW ORDER{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <h2>{% if order %}Edit Order: {{ order.order_number }}{% else %}Create New Order{% endif %}</h2>
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="customer_name">Customer Name</label>
+            <input type="text" id="customer_name" name="customer_name" class="form-control" 
+                   value="{{ order.customer_name if order else '' }}" required
+                   placeholder="Enter customer name">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="customer_phone">Phone Number</label>
+                <input type="tel" id="customer_phone" name="customer_phone" class="form-control" 
+                       value="{{ order.customer_phone if order else '' }}"
+                       placeholder="Enter phone number">
+            </div>
+            
+            <div class="form-group">
+                <label for="delivery_date">Delivery Date</label>
+                <input type="date" id="delivery_date" name="delivery_date" class="form-control" 
+                       value="{{ order.delivery_date.strftime('%Y-%m-%d') if order and order.delivery_date else '' }}">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="customer_address">Delivery Address</label>
+            <textarea id="customer_address" name="customer_address" class="form-control" 
+                      placeholder="Enter delivery address">{{ order.customer_address if order else '' }}</textarea>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="product_id">Product</label>
+                <select id="product_id" name="product_id" class="form-control" required onchange="updateTotal()">
+                    <option value="">Select Product</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" data-price="{{ product.price_per_unit }}"
+                            {% if order and order.product_id == product.id %}selected{% endif %}>
+                        {{ product.name }} - ₹{{ "%.2f"|format(product.price_per_unit) }}/{{ product.unit }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="quantity">Quantity</label>
+                <input type="number" id="quantity" name="quantity" class="form-control" min="1"
+                       value="{{ order.quantity if order else 1 }}" required
+                       placeholder="1" onchange="updateTotal()">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="form-control" required>
+                <option value="Pending" {% if order and order.status == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Processing" {% if order and order.status == 'Processing' %}selected{% endif %}>Processing</option>
+                <option value="Completed" {% if order and order.status == 'Completed' %}selected{% endif %}>Completed</option>
+                <option value="Cancelled" {% if order and order.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="notes">Notes (Optional)</label>
+            <textarea id="notes" name="notes" class="form-control" 
+                      placeholder="Any additional notes">{{ order.notes if order else '' }}</textarea>
+        </div>
+        
+        <div class="form-group" style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+            <label>Estimated Total</label>
+            <div id="total-display" style="font-size: 1.5rem; font-weight: bold;">₹0.00</div>
+        </div>
+        
+        <div class="d-flex gap-1 mt-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> {% if order %}Update{% else %}Create{% endif %} Order
+            </button>
+            <a href="{{ url_for('orders') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateTotal() {
+        const productSelect = document.getElementById('product_id');
+        const quantity = document.getElementById('quantity').value || 0;
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        const price = selectedOption.dataset.price || 0;
+        
+        const total = parseFloat(price) * parseInt(quantity);
+        
+        let displayText = '₹' + total.toFixed(2);
+        if (total >= 100000) {
+            displayText += ' (' + (total/100000).toFixed(2) + 'L)';
+        }
+        
+        document.getElementById('total-display').textContent = displayText;
+    }
+    
+    // Initialize on page load
+    updateTotal();
+</script>
+{% endblock %}

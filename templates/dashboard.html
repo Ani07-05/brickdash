@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}MANAGER DASHBOARD{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-value">{{ total_employees }}</div>
+        <div class="stat-label">Active Employees</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-boxes"></i>
+        </div>
+        <div class="stat-value">{{ total_products }}</div>
+        <div class="stat-label">Products</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-shopping-cart"></i>
+        </div>
+        <div class="stat-value">{{ total_orders }}</div>
+        <div class="stat-label">Total Orders</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon info">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-value">{{ pending_orders }}</div>
+        <div class="stat-label">Pending Orders</div>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        <div class="stat-value">{{ present_today }}</div>
+        <div class="stat-label">Present Today</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-tasks"></i>
+        </div>
+        <div class="stat-value">{{ pending_tasks }}</div>
+        <div class="stat-label">Pending Tasks</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-rupee-sign"></i>
+        </div>
+        <div class="stat-value">{{ inventory_value|format_currency }}</div>
+        <div class="stat-label">Inventory Value</div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Recent Orders -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-shopping-cart"></i> Recent Orders</h2>
+            <a href="{{ url_for('orders') }}" class="btn btn-sm btn-outline">View All</a>
+        </div>
+        <div class="card-body">
+            {% if recent_orders %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in recent_orders %}
+                        <tr>
+                            <td>{{ order['order_number'] }}</td>
+                            <td>{{ order['customer_name'] }}</td>
+                            <td class="currency">{{ order['total_amount']|format_currency }}</td>
+                            <td>
+                                <span class="badge badge-{% if order['status'] == 'Completed' %}success{% elif order['status'] == 'Pending' %}warning{% elif order['status'] == 'Cancelled' %}danger{% else %}info{% endif %}">
+                                    {{ order['status'] }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-shopping-cart"></i>
+                <p>No orders yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Low Stock Alert -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-exclamation-triangle text-warning"></i> Low Stock Alert</h2>
+            <a href="{{ url_for('inventory') }}" class="btn btn-sm btn-outline">Manage Inventory</a>
+        </div>
+        <div class="card-body">
+            {% if low_stock %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Stock</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in low_stock %}
+                        <tr class="low-stock">
+                            <td>{{ product['name'] }}</td>
+                            <td>{{ product['stock_quantity'] }} {{ product['unit'] }}s</td>
+                            <td>
+                                <a href="{{ url_for('inventory') }}" class="btn btn-sm btn-warning">Restock</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-check-circle text-success"></i>
+                <p>All products are well stocked!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card mt-2">
+    <div class="card-header">
+        <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+    </div>
+    <div class="card-body">
+        <div class="d-flex gap-2" style="flex-wrap: wrap;">
+            <a href="{{ url_for('add_order') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Order
+            </a>
+            <a href="{{ url_for('add_product') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Add Product
+            </a>
+            <a href="{{ url_for('add_employee') }}" class="btn btn-info">
+                <i class="fas fa-user-plus"></i> Add Employee
+            </a>
+            <a href="{{ url_for('attendance_registry') }}" class="btn btn-warning">
+                <i class="fas fa-calendar-check"></i> Mark Attendance
+            </a>
+            <a href="{{ url_for('add_task') }}" class="btn btn-secondary">
+                <i class="fas fa-tasks"></i> Create Task
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

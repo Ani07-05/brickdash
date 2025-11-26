@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block header %}ORDER DETAILS{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    <div class="card-header">
+        <h2><i class="fas fa-file-invoice"></i> Order {{ order.order_number }}</h2>
+        <span class="badge badge-{% if order.status == 'Completed' %}success{% elif order.status == 'Pending' %}warning{% elif order.status == 'Cancelled' %}danger{% else %}info{% endif %}">
+            {{ order.status }}
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="grid-2 mb-2">
+            <div>
+                <h4 style="color: var(--text-secondary); margin-bottom: 10px;">Customer Details</h4>
+                <p><strong>Name:</strong> {{ order.customer_name }}</p>
+                <p><strong>Phone:</strong> {{ order.customer_phone or 'N/A' }}</p>
+                <p><strong>Address:</strong> {{ order.customer_address or 'N/A' }}</p>
+            </div>
+            <div>
+                <h4 style="color: var(--text-secondary); margin-bottom: 10px;">Order Info</h4>
+                <p><strong>Order Date:</strong> {{ order.order_date|format_date }}</p>
+                <p><strong>Delivery Date:</strong> {{ order.delivery_date|format_date if order.delivery_date else 'Not Set' }}</p>
+            </div>
+        </div>
+        
+        <hr style="border-color: var(--border-color); margin: 20px 0;">
+        
+        <h4 style="color: var(--text-secondary); margin-bottom: 15px;">Order Items</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Price/Unit</th>
+                    <th>Quantity</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ order.product.name }}</td>
+                    <td class="currency">₹{{ "%.2f"|format(order.product.price_per_unit) }}</td>
+                    <td>{{ order.quantity }}</td>
+                    <td class="currency"><strong>{{ order.total_amount|format_currency }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        {% if order.notes %}
+        <div class="mt-2" style="background: var(--bg-main); padding: 15px; border-radius: var(--radius);">
+            <strong>Notes:</strong> {{ order.notes }}
+        </div>
+        {% endif %}
+        
+        <div class="d-flex gap-1 mt-3">
+            <a href="{{ url_for('edit_order', id=order.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Edit Order
+            </a>
+            <a href="{{ url_for('orders') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Orders
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

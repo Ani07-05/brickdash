@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Tasks{% endblock %}
+{% block header %}TASK MANAGEMENT{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-tasks"></i> Tasks</h2>
+        <a href="{{ url_for('add_task') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Task
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- Filters -->
+        <div class="filter-bar">
+            <label>Filter by Status:</label>
+            <a href="{{ url_for('tasks') }}" class="btn btn-sm {% if not current_status %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+            <a href="{{ url_for('tasks', status='Not Started') }}" class="btn btn-sm {% if current_status == 'Not Started' %}btn-secondary{% else %}btn-outline{% endif %}">Not Started</a>
+            <a href="{{ url_for('tasks', status='In Progress') }}" class="btn btn-sm {% if current_status == 'In Progress' %}btn-info{% else %}btn-outline{% endif %}">In Progress</a>
+            <a href="{{ url_for('tasks', status='Completed') }}" class="btn btn-sm {% if current_status == 'Completed' %}btn-success{% else %}btn-outline{% endif %}">Completed</a>
+        </div>
+        
+        {% if tasks %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Assigned To</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Due Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td><strong>{{ task.title }}</strong></td>
+                        <td>{{ task.assigned_employee.name if task.assigned_employee else 'Unassigned' }}</td>
+                        <td>
+                            <span class="badge badge-{% if task.priority == 'High' %}danger{% elif task.priority == 'Medium' %}warning{% else %}secondary{% endif %}">
+                                {{ task.priority }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge badge-{% if task.status == 'Completed' %}success{% elif task.status == 'In Progress' %}info{% else %}secondary{% endif %}">
+                                {{ task.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="progress" style="width: 100px;">
+                                <div class="progress-bar" style="width: {{ task.progress }}%;"></div>
+                            </div>
+                            <small>{{ task.progress }}%</small>
+                        </td>
+                        <td>{{ task.due_date|format_date if task.due_date else '-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_task', id=task.id) }}" class="action-btn edit">Edit</a>
+                                <a href="{{ url_for('delete_task', id=task.id) }}" class="action-btn delete" onclick="return confirm('Delete this task?')">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-tasks"></i>
+            <p>No tasks found</p>
+            <a href="{{ url_for('add_task') }}" class="btn btn-primary mt-2">Create First Task</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

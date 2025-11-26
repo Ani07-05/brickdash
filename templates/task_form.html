@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if task %}Edit{% else %}Create{% endif %} Task{% endblock %}
+{% block header %}{% if task %}EDIT TASK{% else %}CREATE TASK{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <h2>{% if task %}Edit Task{% else %}Create Task{% endif %}</h2>
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" class="form-control" 
+                   value="{{ task.title if task else '' }}" required
+                   placeholder="Short task title">
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" class="form-control" 
+                      placeholder="Detailed task description">{{ task.description if task else '' }}</textarea>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="assigned_to">Assigned to</label>
+                <select id="assigned_to" name="assigned_to" class="form-control">
+                    <option value="">-- Unassigned --</option>
+                    {% for employee in employees %}
+                    <option value="{{ employee.id }}" 
+                            {% if task and task.assigned_to == employee.id %}selected{% endif %}>
+                        {{ employee.name }} ({{ employee.role }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="priority">Priority</label>
+                <select id="priority" name="priority" class="form-control" required>
+                    <option value="Low" {% if task and task.priority == 'Low' %}selected{% endif %}>Low</option>
+                    <option value="Medium" {% if not task or task.priority == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="High" {% if task and task.priority == 'High' %}selected{% endif %}>High</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status" class="form-control" required>
+                    <option value="Not Started" {% if not task or task.status == 'Not Started' %}selected{% endif %}>Not Started</option>
+                    <option value="In Progress" {% if task and task.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                    <option value="Completed" {% if task and task.status == 'Completed' %}selected{% endif %}>Completed</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="progress">Progress (%)</label>
+                <input type="number" id="progress" name="progress" class="form-control" 
+                       min="0" max="100" value="{{ task.progress if task else 0 }}"
+                       placeholder="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="due_date">Due Date</label>
+                <input type="date" id="due_date" name="due_date" class="form-control" 
+                       value="{{ task.due_date.strftime('%Y-%m-%d') if task and task.due_date else '' }}">
+            </div>
+        </div>
+        
+        <div class="d-flex gap-1 mt-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Task
+            </button>
+            <a href="{{ url_for('tasks') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

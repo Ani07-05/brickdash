@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if product %}Edit{% else %}Add{% endif %} Product{% endblock %}
+{% block header %}{% if product %}EDIT PRODUCT{% else %}ADD PRODUCT{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <h2>{% if product %}Edit Product{% else %}Add New Product{% endif %}</h2>
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Product Name</label>
+            <input type="text" id="name" name="name" class="form-control" 
+                   value="{{ product.name if product else '' }}" required
+                   placeholder="Enter product name">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="category">Category</label>
+                <select id="category" name="category" class="form-control" required>
+                    <option value="">Select Category</option>
+                    <option value="Bricks" {% if product and product.category == 'Bricks' %}selected{% endif %}>Bricks</option>
+                    <option value="Blocks" {% if product and product.category == 'Blocks' %}selected{% endif %}>Blocks</option>
+                    <option value="Tiles" {% if product and product.category == 'Tiles' %}selected{% endif %}>Tiles</option>
+                    <option value="Raw Materials" {% if product and product.category == 'Raw Materials' %}selected{% endif %}>Raw Materials</option>
+                    <option value="Other" {% if product and product.category == 'Other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="unit">Unit</label>
+                <select id="unit" name="unit" class="form-control" required>
+                    <option value="piece" {% if product and product.unit == 'piece' %}selected{% endif %}>Piece</option>
+                    <option value="kg" {% if product and product.unit == 'kg' %}selected{% endif %}>Kg</option>
+                    <option value="ton" {% if product and product.unit == 'ton' %}selected{% endif %}>Ton</option>
+                    <option value="bag" {% if product and product.unit == 'bag' %}selected{% endif %}>Bag</option>
+                    <option value="truck" {% if product and product.unit == 'truck' %}selected{% endif %}>Truck Load</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="price">Price per Unit (₹)</label>
+                <input type="number" id="price" name="price" class="form-control" step="0.01" min="0"
+                       value="{{ product.price_per_unit if product else '' }}" required
+                       placeholder="0.00">
+            </div>
+            
+            <div class="form-group">
+                <label for="stock">Stock Quantity</label>
+                <input type="number" id="stock" name="stock" class="form-control" min="0"
+                       value="{{ product.stock_quantity if product else 0 }}" required
+                       placeholder="0">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description (Optional)</label>
+            <textarea id="description" name="description" class="form-control" 
+                      placeholder="Enter product description">{{ product.description if product else '' }}</textarea>
+        </div>
+        
+        <div class="d-flex gap-1 mt-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> {% if product %}Update{% else %}Add{% endif %} Product
+            </button>
+            <a href="{{ url_for('products') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

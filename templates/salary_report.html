@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Salary Report{% endblock %}
+{% block header %}SALARY REPORT{% endblock %}
+
+{% block content %}
+<div class="report-card">
+    <h2><i class="fas fa-file-invoice-dollar"></i> {{ month_name }} {{ year }}</h2>
+    
+    <div class="report-row">
+        <span>Period:</span>
+        <span>{{ month_name }} 1, {{ year }} — {{ month_name }} {{ [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month-1] }}, {{ year }}</span>
+    </div>
+    
+    <div class="report-row">
+        <span>Gross:</span>
+        <span class="currency">{{ total_gross|format_currency }}</span>
+    </div>
+    
+    <div class="report-row">
+        <span>Deductions:</span>
+        <span class="currency text-danger">{{ total_deductions|format_currency }}</span>
+    </div>
+    
+    <div class="report-row">
+        <span>Net:</span>
+        <span class="currency" style="color: #4caf50;">{{ total_net|format_currency }}</span>
+    </div>
+    
+    <div class="report-actions">
+        <a href="{{ url_for('download_salary_csv', month=month, year=year) }}" class="btn btn-primary">
+            <i class="fas fa-download"></i> Download CSV
+        </a>
+        <a href="{{ url_for('salary', month=month, year=year) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+{% if records %}
+<div class="card mt-3">
+    <div class="card-header">
+        <h2>Breakdown by Employee</h2>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Role</th>
+                        <th>Gross</th>
+                        <th>Deductions</th>
+                        <th>Net</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.employee.name }}</td>
+                        <td>{{ record.employee.role }}</td>
+                        <td class="currency">{{ record.gross_salary|format_currency }}</td>
+                        <td class="currency">{{ record.deductions|format_currency }}</td>
+                        <td class="currency"><strong>{{ record.net_salary|format_currency }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

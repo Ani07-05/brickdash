@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Salary{% endblock %}
+{% block header %}SALARY MANAGEMENT{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-money-bill-wave"></i> Salary Records</h2>
+        <div class="d-flex gap-1 align-center">
+            <select id="month-select" class="form-control" style="width: auto;">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+                    {{ ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m-1] }}
+                </option>
+                {% endfor %}
+            </select>
+            <select id="year-select" class="form-control" style="width: auto;">
+                {% for y in range(2023, 2027) %}
+                <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="changePeriod()" class="btn btn-primary">Go</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Generate Salary -->
+        <div class="mb-2">
+            <form method="POST" action="{{ url_for('generate_salary') }}" style="display: inline;">
+                <input type="hidden" name="month" value="{{ current_month }}">
+                <input type="hidden" name="year" value="{{ current_year }}">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-calculator"></i> Generate Salary for {{ ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][current_month-1] }} {{ current_year }}
+                </button>
+            </form>
+            <a href="{{ url_for('salary_report', month=current_month, year=current_year) }}" class="btn btn-info">
+                <i class="fas fa-file-alt"></i> View Report
+            </a>
+        </div>
+        
+        {% if records %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>ID</th>
+                        <th>Role</th>
+                        <th>Gross Salary</th>
+                        <th>Deductions</th>
+                        <th>Net Salary</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td><strong>{{ record.name }}</strong></td>
+                        <td>{{ record.emp_id }}</td>
+                        <td>{{ record.role }}</td>
+                        <td class="currency">{{ record.gross_salary|format_currency }}</td>
+                        <td class="currency text-danger">{{ record.deductions|format_currency }}</td>
+                        <td class="currency"><strong>{{ record.net_salary|format_currency }}</strong></td>
+                        <td>
+                            <span class="badge badge-{% if record.paid %}success{% else %}warning{% endif %}">
+                                {% if record.paid %}Paid{% else %}Pending{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-money-bill-wave"></i>
+            <p>No salary records for this period</p>
+            <p class="text-muted">Click "Generate Salary" to create records based on attendance</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function changePeriod() {
+        const month = document.getElementById('month-select').value;
+        const year = document.getElementById('year-select').value;
+        window.location.href = '{{ url_for("salary") }}?month=' + month + '&year=' + year;
+    }
+</script>
+{% endblock %}
