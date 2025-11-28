@@ -13,7 +13,12 @@ import os
 import hashlib
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'brickdash-secret-key-2025'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'brickdash-secret-key-2025')
+# Session configuration for production
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER', False)  # True on Render (HTTPS)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'brickdash.db')
 
 def hash_password(password):
@@ -412,6 +417,7 @@ def login():
                 flash(f'Invalid role selected. You are registered as {user["role"]}.', 'danger')
                 return render_template('login.html')
             
+            session.permanent = True  # Make session persistent
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['user_role'] = user['role']
@@ -1467,9 +1473,10 @@ def generate_payroll():
     
     month = int(data.get('month', date.today().month))
     year = int(data.get('year', date.today().year))
-    employee_id = data.get('employee_id', 'all')
+    employee_id = data.get('employee_id', '')
     
-    if employee_id == 'all':
+    # Handle 'all', empty string, or None - all mean "all employees"
+    if not employee_id or employee_id == 'all' or employee_id == '':
         employees_list = db.execute('SELECT * FROM employees WHERE is_active = 1').fetchall()
     else:
         employees_list = db.execute('SELECT * FROM employees WHERE id = ?', (int(employee_id),)).fetchall()
