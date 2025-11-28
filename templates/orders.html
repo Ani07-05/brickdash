@@ -1,17 +1,25 @@
 {% extends 'base.html' %}
 
-{% block title %}Orders{% endblock %}
-{% block header %}ORDERS{% endblock %}
+{% block title %}Order Book{% endblock %}
+{% block header %}ORDER BOOK{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2><i class="fas fa-shopping-cart"></i> Order Book</h2>
+        <h2><i class="fas fa-book"></i> Order Book</h2>
         <a href="{{ url_for('add_order') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> New Order
         </a>
     </div>
     <div class="card-body">
+        <!-- Search Bar -->
+        <div class="search-bar mb-2">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="orderSearch" class="form-control search-input" placeholder="Search by Order ID, Customer, Product...">
+            </div>
+        </div>
+        
         <!-- Filters -->
         <div class="filter-bar">
             <label>Filter by Status:</label>
@@ -24,28 +32,28 @@
         
         {% if orders %}
         <div class="table-container">
-            <table>
+            <table id="ordersTable">
                 <thead>
                     <tr>
-                        <th>Order #</th>
+                        <th>Order ID</th>
                         <th>Customer</th>
                         <th>Product</th>
                         <th>Qty</th>
-                        <th>Total</th>
+                        <th>Amount Receivable</th>
                         <th>Order Date</th>
-                        <th>Delivery</th>
+                        <th>Due Date</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for order in orders %}
-                    <tr>
+                    <tr class="order-row">
                         <td><strong>{{ order.order_number }}</strong></td>
                         <td>{{ order.customer_name }}</td>
                         <td>{{ order.product_name }}</td>
                         <td>{{ order.quantity }}</td>
-                        <td class="currency">{{ order.total_amount|format_currency }}</td>
+                        <td class="currency">{{ order.total_amount|indian_currency }}</td>
                         <td>{{ order.order_date|format_date }}</td>
                         <td>{{ order.delivery_date|format_date if order.delivery_date else '-' }}</td>
                         <td>
@@ -67,11 +75,26 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <i class="fas fa-shopping-cart"></i>
+            <i class="fas fa-book"></i>
             <p>No orders found</p>
             <a href="{{ url_for('add_order') }}" class="btn btn-primary mt-2">Create First Order</a>
         </div>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search functionality
+    document.getElementById('orderSearch').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.order-row');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
+</script>
 {% endblock %}

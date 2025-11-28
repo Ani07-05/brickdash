@@ -1,0 +1,504 @@
+{% extends 'base.html' %}
+
+{% block title %}Task Rotation Matrix{% endblock %}
+{% block header %}TASK ROTATION MATRIX{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-sync-alt"></i> Task Rotation Matrix</h2>
+        <a href="{{ url_for('tasks') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Tasks
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- Info Banner -->
+        <div class="info-banner mb-2">
+            <i class="fas fa-info-circle"></i>
+            <span><strong>Weekly Rotation:</strong> Tasks rotate every week to reduce fatigue from repetitive work. Employees with fewer assignments this week are suggested first.</span>
+        </div>
+        
+        <!-- Quick Assignment Suggestions -->
+        <div class="suggestions-section mb-2">
+            <h3><i class="fas fa-lightbulb"></i> Next Assignment Suggestions</h3>
+            <div class="suggestions-grid">
+                {% for task_type, employee in suggestions.items() %}
+                <div class="suggestion-card">
+                    <div class="suggestion-type">{{ task_type }}</div>
+                    {% if employee %}
+                    <div class="suggestion-employee">
+                        <i class="fas fa-user"></i> {{ employee.name }}
+                    </div>
+                    <div class="suggestion-count">
+                        {{ employee.counts.get(task_type, 0) }} this week
+                    </div>
+                    <button class="btn btn-sm btn-primary mt-1" 
+                            onclick="quickAssign({{ employee.id }}, '{{ task_type }}')">
+                        <i class="fas fa-check"></i> Assign
+                    </button>
+                    {% else %}
+                    <div class="suggestion-employee text-muted">No employees available</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Rotation Matrix Table -->
+        <div class="matrix-section">
+            <h3><i class="fas fa-table"></i> Weekly Distribution Matrix</h3>
+            <div class="table-container">
+                <table class="rotation-matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Role</th>
+                            {% for task_type in task_types %}
+                            <th class="text-center">{{ task_type }}</th>
+                            {% endfor %}
+                            <th class="text-center">Total</th>
+                            <th>Last Assigned</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in rotation_matrix %}
+                        <tr class="{% if loop.first %}next-in-line{% endif %}">
+                            <td>
+                                <strong>{{ emp.name }}</strong>
+                                {% if loop.first %}
+                                <span class="badge badge-success ml-1">Next</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ emp.role }}</td>
+                            {% for task_type in task_types %}
+                            <td class="text-center">
+                                <span class="count-badge {% if emp.counts.get(task_type, 0) == 0 %}count-zero{% elif emp.counts.get(task_type, 0) >= 2 %}count-high{% else %}count-normal{% endif %}">
+                                    {{ emp.counts.get(task_type, 0) }}
+                                </span>
+                            </td>
+                            {% endfor %}
+                            <td class="text-center">
+                                <strong>{{ emp.total }}</strong>
+                            </td>
+                            <td>
+                                {% if emp.last_assigned %}
+                                {{ emp.last_assigned[:10] if emp.last_assigned else '-' }}
+                                {% else %}
+                                <span class="text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if emp.total == 0 %}
+                                <span class="badge badge-info">Available</span>
+                                {% elif emp.total <= 2 %}
+                                <span class="badge badge-success">Light Load</span>
+                                {% elif emp.total <= 4 %}
+                                <span class="badge badge-warning">Moderate</span>
+                                {% else %}
+                                <span class="badge badge-danger">Heavy Load</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Visual Chart -->
+        <div class="chart-section mt-2">
+            <h3><i class="fas fa-chart-bar"></i> Task Distribution Chart</h3>
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="rotationChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="actions-section mt-2">
+            <button class="btn btn-secondary" onclick="resetRotation()">
+                <i class="fas fa-redo"></i> Reset Rotation Log
+            </button>
+            <a href="{{ url_for('add_task') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create New Task
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Assign Modal -->
+<div id="assignModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <h3><i class="fas fa-user-plus"></i> Quick Task Assignment</h3>
+        <form id="quickAssignForm" method="POST" action="{{ url_for('add_task') }}">
+            <input type="hidden" id="modal_assigned_to" name="assigned_to">
+            <input type="hidden" id="modal_task_type" name="task_type">
+            
+            <div class="form-group">
+                <label>Assigning to:</label>
+                <div id="modal_employee_name" class="form-value"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Task Type:</label>
+                <div id="modal_type_display" class="form-value"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="modal_title">Task Title *</label>
+                <input type="text" id="modal_title" name="title" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="modal_description">Description</label>
+                <textarea id="modal_description" name="description" class="form-control"></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modal_priority">Priority</label>
+                    <select id="modal_priority" name="priority" class="form-control">
+                        <option value="Low">Low</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="modal_due_date">Due Date</label>
+                    <input type="date" id="modal_due_date" name="due_date" class="form-control">
+                </div>
+            </div>
+            
+            <input type="hidden" name="status" value="Not Started">
+            <input type="hidden" name="progress" value="0">
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Create & Assign Task
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.info-banner {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-left: 4px solid #2196F3;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.info-banner i {
+    color: #2196F3;
+    font-size: 1.2rem;
+}
+
+.suggestions-section h3,
+.matrix-section h3,
+.chart-section h3 {
+    color: var(--text-color);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.suggestion-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.suggestion-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-color: var(--primary-color);
+}
+
+.suggestion-type {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.suggestion-employee {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.suggestion-count {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.rotation-matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rotation-matrix-table th {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 12px 8px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rotation-matrix-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rotation-matrix-table tr:hover {
+    background: #f8f9fa;
+}
+
+.rotation-matrix-table tr.next-in-line {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+}
+
+.count-badge {
+    display: inline-block;
+    min-width: 28px;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.count-zero {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.count-normal {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.count-high {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.actions-section {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+.close-modal:hover {
+    color: #333;
+}
+
+.modal-content h3 {
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+}
+
+.form-value {
+    background: #f5f5f5;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.ml-1 {
+    margin-left: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Employee data for modal
+const employeeData = {
+    {% for emp in rotation_matrix %}
+    {{ emp.id }}: { name: '{{ emp.name }}', role: '{{ emp.role }}' }{% if not loop.last %},{% endif %}
+    {% endfor %}
+};
+
+// Chart initialization
+const ctx = document.getElementById('rotationChart').getContext('2d');
+const rotationChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: [{% for emp in rotation_matrix %}'{{ emp.name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [
+            {% for task_type in task_types %}
+            {
+                label: '{{ task_type }}',
+                data: [{% for emp in rotation_matrix %}{{ emp.counts.get(task_type, 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: getColor({{ loop.index0 }}),
+                borderRadius: 4,
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            },
+            title: {
+                display: true,
+                text: 'Weekly Task Distribution by Employee'
+            }
+        },
+        scales: {
+            x: {
+                stacked: true,
+                grid: {
+                    display: false
+                }
+            },
+            y: {
+                stacked: true,
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+function getColor(index) {
+    const colors = [
+        'rgba(255, 99, 132, 0.8)',
+        'rgba(54, 162, 235, 0.8)',
+        'rgba(255, 206, 86, 0.8)',
+        'rgba(75, 192, 192, 0.8)',
+        'rgba(153, 102, 255, 0.8)',
+        'rgba(255, 159, 64, 0.8)'
+    ];
+    return colors[index % colors.length];
+}
+
+function quickAssign(employeeId, taskType) {
+    document.getElementById('modal_assigned_to').value = employeeId;
+    document.getElementById('modal_task_type').value = taskType;
+    document.getElementById('modal_employee_name').textContent = employeeData[employeeId].name + ' (' + employeeData[employeeId].role + ')';
+    document.getElementById('modal_type_display').textContent = taskType;
+    document.getElementById('modal_title').value = taskType + ' Task';
+    document.getElementById('assignModal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('assignModal').style.display = 'none';
+}
+
+// Close modal on outside click
+document.getElementById('assignModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+function resetRotation() {
+    if (confirm('This will clear the rotation log for this week. Are you sure?')) {
+        fetch('/api/task-rotation/reset', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Rotation log has been reset!');
+                    location.reload();
+                }
+            })
+            .catch(() => {
+                alert('Reset feature coming soon!');
+            });
+    }
+}
+
+// Log assignment when task form is submitted
+document.getElementById('quickAssignForm').addEventListener('submit', function() {
+    const employeeId = document.getElementById('modal_assigned_to').value;
+    const taskType = document.getElementById('modal_task_type').value;
+    
+    // Log the assignment
+    fetch('/api/task-rotation/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employeeId, task_type: taskType })
+    });
+});
+</script>
+{% endblock %}

@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BrickDash{% endblock %} - Manager Dashboard</title>
+    <title>{% block title %}BrickDash{% endblock %} - {{ session.get('user_role', 'Dashboard') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -20,49 +21,119 @@
                     <i class="fas fa-chart-pie"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ url_for('products') }}" class="nav-item {% if 'product' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-boxes"></i>
-                    <span>Products</span>
-                </a>
+                
+                {# Orders - All can view, only Manager/Supervisor can add/edit #}
                 <a href="{{ url_for('orders') }}" class="nav-item {% if 'order' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>Orders</span>
+                    <i class="fas fa-book"></i>
+                    <span>Order Book</span>
                 </a>
+                
+                {# Inventory - Only Manager and Supervisor #}
+                {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
                 <a href="{{ url_for('inventory') }}" class="nav-item {% if 'inventory' in request.endpoint %}active{% endif %}">
                     <i class="fas fa-warehouse"></i>
                     <span>Inventory</span>
                 </a>
-                <a href="{{ url_for('employees') }}" class="nav-item {% if request.endpoint == 'employees' %}active{% endif %}">
-                    <i class="fas fa-users"></i>
-                    <span>Employees</span>
+                {% endif %}
+                
+                {# Tasks - All can view their tasks #}
+                <a href="{{ url_for('tasks') }}" class="nav-item {% if 'task' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-tasks"></i>
+                    <span>{% if session.get('user_role') == 'Employee' %}My Tasks{% else %}Task Allocation{% endif %}</span>
+                </a>
+                
+                {# Workforce Management - Only Manager and Supervisor #}
+                {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
+                <div class="nav-section">
+                    <span class="nav-section-title">Workforce Management</span>
+                </div>
+                <a href="{{ url_for('employees') }}" class="nav-item {% if request.endpoint == 'employees' or 'employee' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-id-card"></i>
+                    <span>Profiles</span>
                 </a>
                 <div class="nav-submenu">
                     <a href="{{ url_for('attendance_registry') }}" class="nav-item {% if 'attendance' in request.endpoint %}active{% endif %}">
                         <i class="fas fa-calendar-check"></i>
                         <span>Attendance</span>
                     </a>
-                    <a href="{{ url_for('tasks') }}" class="nav-item {% if 'task' in request.endpoint %}active{% endif %}">
-                        <i class="fas fa-tasks"></i>
-                        <span>Tasks</span>
-                    </a>
-                    <a href="{{ url_for('salary') }}" class="nav-item {% if 'salary' in request.endpoint %}active{% endif %}">
+                    {# Payroll - Only Manager #}
+                    {% if session.get('user_role') == 'Manager' %}
+                    <a href="{{ url_for('payroll') }}" class="nav-item {% if 'payroll' in request.endpoint %}active{% endif %}">
                         <i class="fas fa-money-bill-wave"></i>
-                        <span>Salary</span>
+                        <span>Payroll</span>
                     </a>
+                    {% endif %}
                 </div>
+                {% endif %}
+                
+                {# My Profile - For Employees to see their own info #}
+                {% if session.get('user_role') == 'Employee' and session.get('employee_id') %}
+                <div class="nav-section">
+                    <span class="nav-section-title">My Account</span>
+                </div>
+                <a href="{{ url_for('my_profile') }}" class="nav-item {% if request.endpoint == 'my_profile' %}active{% endif %}">
+                    <i class="fas fa-user"></i>
+                    <span>My Profile</span>
+                </a>
+                <a href="{{ url_for('my_attendance') }}" class="nav-item {% if request.endpoint == 'my_attendance' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>My Attendance</span>
+                </a>
+                {% endif %}
+                
+                {# Products - Only Manager and Supervisor #}
+                {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
+                <a href="{{ url_for('products') }}" class="nav-item {% if 'product' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-boxes"></i>
+                    <span>Products</span>
+                </a>
+                {% endif %}
             </nav>
+            
+            <!-- User Info & Logout at bottom of sidebar -->
+            <div class="sidebar-footer">
+                {% if session.get('user_id') %}
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-avatar">{{ session.get('username', 'U')[0]|upper }}</div>
+                    <div class="sidebar-user-details">
+                        <span class="sidebar-username">{{ session.get('username', 'User') }}</span>
+                        <span class="sidebar-role">{{ session.get('user_role', 'Guest') }}</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="nav-item logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+                {% else %}
+                <a href="{{ url_for('login') }}" class="nav-item login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Login</span>
+                </a>
+                <a href="{{ url_for('register') }}" class="nav-item register-btn">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Register</span>
+                </a>
+                {% endif %}
+            </div>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
             <header class="page-header">
-                <h1>{% block header %}MANAGER DASHBOARD{% endblock %}</h1>
+                <h1>{% block header %}DASHBOARD{% endblock %}</h1>
                 <div class="header-actions">
-                    <i class="fas fa-bell" style="font-size: 1.2rem;"></i>
+                    {% if session.get('user_id') %}
+                    <i class="fas fa-bell" style="font-size: 1.2rem; cursor: pointer;"></i>
                     <div class="user-badge">
-                        <div class="user-avatar">M</div>
-                        <span>Manager</span>
+                        <div class="user-avatar">{{ session.get('username', 'U')[0]|upper }}</div>
+                        <div class="user-info">
+                            <span class="user-name">{{ session.get('username', 'User') }}</span>
+                            <span class="user-role-tag {% if session.get('user_role') == 'Manager' %}role-manager{% elif session.get('user_role') == 'Supervisor' %}role-supervisor{% else %}role-employee{% endif %}">{{ session.get('user_role', 'Guest') }}</span>
+                        </div>
                     </div>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary">Login</a>
+                    {% endif %}
                 </div>
             </header>
 

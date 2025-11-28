@@ -1,19 +1,32 @@
 {% extends 'base.html' %}
 
-{% block title %}Tasks{% endblock %}
-{% block header %}TASK MANAGEMENT{% endblock %}
+{% block title %}Task Allocation{% endblock %}
+{% block header %}TASK ALLOCATION{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2><i class="fas fa-tasks"></i> Tasks</h2>
-        <a href="{{ url_for('add_task') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Create Task
-        </a>
+        <h2><i class="fas fa-tasks"></i> Task Allocation</h2>
+        <div class="header-actions">
+            <a href="{{ url_for('task_rotation') }}" class="btn btn-info">
+                <i class="fas fa-sync-alt"></i> Rotation Matrix
+            </a>
+            <a href="{{ url_for('add_task') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Task
+            </a>
+        </div>
     </div>
     <div class="card-body">
+        <!-- Search Bar -->
+        <div class="search-bar mb-2">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="taskSearch" class="form-control search-input" placeholder="Search by Order ID, Task, Employee...">
+            </div>
+        </div>
+        
         <!-- Filters -->
-        <div class="filter-bar">
+        <div class="filter-bar mb-1">
             <label>Filter by Status:</label>
             <a href="{{ url_for('tasks') }}" class="btn btn-sm {% if not current_status %}btn-primary{% else %}btn-outline{% endif %}">All</a>
             <a href="{{ url_for('tasks', status='Not Started') }}" class="btn btn-sm {% if current_status == 'Not Started' %}btn-secondary{% else %}btn-outline{% endif %}">Not Started</a>
@@ -21,11 +34,20 @@
             <a href="{{ url_for('tasks', status='Completed') }}" class="btn btn-sm {% if current_status == 'Completed' %}btn-success{% else %}btn-outline{% endif %}">Completed</a>
         </div>
         
+        <div class="filter-bar">
+            <label>Filter by Priority:</label>
+            <a href="{{ url_for('tasks') }}" class="btn btn-sm {% if not current_priority %}btn-primary{% else %}btn-outline{% endif %}" data-priority="all">All</a>
+            <a href="javascript:void(0)" class="btn btn-sm btn-outline" data-priority="High" onclick="filterByPriority('High')">High</a>
+            <a href="javascript:void(0)" class="btn btn-sm btn-outline" data-priority="Medium" onclick="filterByPriority('Medium')">Medium</a>
+            <a href="javascript:void(0)" class="btn btn-sm btn-outline" data-priority="Low" onclick="filterByPriority('Low')">Low</a>
+        </div>
+        
         {% if tasks %}
         <div class="table-container">
-            <table>
+            <table id="tasksTable">
                 <thead>
                     <tr>
+                        <th>Order ID</th>
                         <th>Title</th>
                         <th>Assigned To</th>
                         <th>Priority</th>
@@ -37,9 +59,10 @@
                 </thead>
                 <tbody>
                     {% for task in tasks %}
-                    <tr>
+                    <tr class="task-row" data-priority="{{ task.priority }}">
+                        <td><strong>{{ task.order_id if task.order_id else '-' }}</strong></td>
                         <td><strong>{{ task.title }}</strong></td>
-                        <td>{{ task.assigned_employee.name if task.assigned_employee else 'Unassigned' }}</td>
+                        <td>{{ task.employee_name if task.employee_name else 'Unassigned' }}</td>
                         <td>
                             <span class="badge badge-{% if task.priority == 'High' %}danger{% elif task.priority == 'Medium' %}warning{% else %}secondary{% endif %}">
                                 {{ task.priority }}
@@ -77,4 +100,46 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search functionality
+    document.getElementById('taskSearch').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.task-row');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
+    
+    // Priority filter
+    let activePriority = 'all';
+    
+    function filterByPriority(priority) {
+        activePriority = priority;
+        const rows = document.querySelectorAll('.task-row');
+        
+        // Update button styles
+        document.querySelectorAll('[data-priority]').forEach(btn => {
+            if (btn.dataset.priority === priority) {
+                btn.classList.remove('btn-outline');
+                btn.classList.add('btn-primary');
+            } else {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline');
+            }
+        });
+        
+        rows.forEach(row => {
+            if (priority === 'all' || row.dataset.priority === priority) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>
 {% endblock %}

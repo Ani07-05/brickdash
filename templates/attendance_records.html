@@ -30,7 +30,7 @@
                 <tbody>
                     {% for record in records %}
                     <tr>
-                        <td><strong>{{ record.employee.name }}</strong></td>
+                        <td><strong>{{ record.employee_name }}</strong></td>
                         <td>{{ record.date|format_date }}</td>
                         <td>
                             <span class="badge badge-{% if record.status == 'Present' %}success{% elif record.status == 'Absent' %}danger{% elif record.status == 'Half-day' %}warning{% else %}info{% endif %}">

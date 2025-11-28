@@ -12,13 +12,21 @@
         </a>
     </div>
     <div class="card-body">
+        <!-- Search Bar -->
+        <div class="search-bar mb-2">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="productSearch" class="form-control search-input" placeholder="Search by Product ID, Name...">
+            </div>
+        </div>
+        
         {% if products %}
         <div class="table-container">
-            <table>
+            <table id="productsTable">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Category</th>
+                        <th class="sortable" data-sort="id" onclick="sortTable(0)">Product ID <i class="fas fa-sort"></i></th>
+                        <th class="sortable" data-sort="name" onclick="sortTable(1)">Name <i class="fas fa-sort"></i></th>
                         <th>Price/Unit</th>
                         <th>Stock</th>
                         <th>Unit</th>
@@ -27,10 +35,10 @@
                 </thead>
                 <tbody>
                     {% for product in products %}
-                    <tr class="{% if product.stock_quantity < 100 %}low-stock{% endif %}">
+                    <tr class="product-row {% if product.stock_quantity < 100 %}low-stock{% endif %}">
+                        <td><strong>PRD{{ "%03d"|format(product.id) }}</strong></td>
                         <td><strong>{{ product.name }}</strong></td>
-                        <td>{{ product.category }}</td>
-                        <td class="currency">₹{{ "%.2f"|format(product.price_per_unit) }}</td>
+                        <td class="currency">{{ product.price_per_unit|indian_currency }}</td>
                         <td>{{ product.stock_quantity }}</td>
                         <td>{{ product.unit }}</td>
                         <td>
@@ -53,4 +61,58 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search functionality
+    document.getElementById('productSearch').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.product-row');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
+    
+    // Sort functionality
+    let sortDirection = {};
+    
+    function sortTable(columnIndex) {
+        const table = document.getElementById('productsTable');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Toggle direction
+        sortDirection[columnIndex] = !sortDirection[columnIndex];
+        const direction = sortDirection[columnIndex] ? 1 : -1;
+        
+        rows.sort((a, b) => {
+            const aVal = a.cells[columnIndex].textContent.trim();
+            const bVal = b.cells[columnIndex].textContent.trim();
+            
+            // Check if numeric
+            const aNum = parseFloat(aVal.replace(/[^\d.-]/g, ''));
+            const bNum = parseFloat(bVal.replace(/[^\d.-]/g, ''));
+            
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return (aNum - bNum) * direction;
+            }
+            
+            return aVal.localeCompare(bVal) * direction;
+        });
+        
+        // Rebuild table
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // Update sort icons
+        document.querySelectorAll('.sortable i').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        const header = table.querySelectorAll('th')[columnIndex];
+        const icon = header.querySelector('i');
+        icon.className = sortDirection[columnIndex] ? 'fas fa-sort-up' : 'fas fa-sort-down';
+    }
+</script>
 {% endblock %}

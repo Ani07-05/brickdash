@@ -6,62 +6,99 @@
 {% block content %}
 <!-- Stats Cards -->
 <div class="stats-grid">
-    <div class="stat-card">
+    <div class="stat-card animated-card">
         <div class="stat-icon primary">
             <i class="fas fa-users"></i>
         </div>
-        <div class="stat-value">{{ total_employees }}</div>
+        <div class="stat-value" data-count="{{ total_employees }}">{{ total_employees }}</div>
         <div class="stat-label">Active Employees</div>
     </div>
     
-    <div class="stat-card">
+    <div class="stat-card animated-card">
         <div class="stat-icon success">
             <i class="fas fa-boxes"></i>
         </div>
-        <div class="stat-value">{{ total_products }}</div>
+        <div class="stat-value" data-count="{{ total_products }}">{{ total_products }}</div>
         <div class="stat-label">Products</div>
     </div>
     
-    <div class="stat-card">
+    <div class="stat-card animated-card">
         <div class="stat-icon warning">
-            <i class="fas fa-shopping-cart"></i>
+            <i class="fas fa-book"></i>
         </div>
-        <div class="stat-value">{{ total_orders }}</div>
+        <div class="stat-value" data-count="{{ total_orders }}">{{ total_orders }}</div>
         <div class="stat-label">Total Orders</div>
     </div>
     
-    <div class="stat-card">
+    <div class="stat-card animated-card">
         <div class="stat-icon info">
             <i class="fas fa-clock"></i>
         </div>
-        <div class="stat-value">{{ pending_orders }}</div>
+        <div class="stat-value" data-count="{{ pending_orders }}">{{ pending_orders }}</div>
         <div class="stat-label">Pending Orders</div>
     </div>
 </div>
 
-<div class="stats-grid">
-    <div class="stat-card">
+<!-- Charts Section -->
+<div class="grid-2 mt-2">
+    <!-- Attendance Pie Chart -->
+    <div class="card chart-card">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-pie"></i> Today's Attendance</h2>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="attendanceChart"></canvas>
+            </div>
+            <div class="chart-legend" id="attendanceLegend"></div>
+        </div>
+    </div>
+    
+    <!-- Production Stats Graph -->
+    <div class="card chart-card">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-line"></i> Order Trends (Last 6 Months)</h2>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="ordersChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Widgets -->
+<div class="stats-grid mt-2">
+    <div class="stat-card notification-widget animated-card">
         <div class="stat-icon success">
             <i class="fas fa-calendar-check"></i>
         </div>
-        <div class="stat-value">{{ present_today }}</div>
+        <div class="stat-value" id="presentCount">{{ present_today }}</div>
         <div class="stat-label">Present Today</div>
     </div>
     
-    <div class="stat-card">
+    <div class="stat-card notification-widget animated-card">
         <div class="stat-icon warning">
             <i class="fas fa-tasks"></i>
         </div>
-        <div class="stat-value">{{ pending_tasks }}</div>
+        <div class="stat-value" id="pendingTasksCount">{{ pending_tasks }}</div>
         <div class="stat-label">Pending Tasks</div>
     </div>
     
-    <div class="stat-card">
+    <div class="stat-card notification-widget animated-card">
         <div class="stat-icon primary">
             <i class="fas fa-rupee-sign"></i>
         </div>
-        <div class="stat-value">{{ inventory_value|format_currency }}</div>
+        <div class="stat-value">{{ inventory_value|indian_currency }}</div>
         <div class="stat-label">Inventory Value</div>
+    </div>
+    
+    <div class="stat-card notification-widget animated-card">
+        <div class="stat-icon danger">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-value">{{ low_stock|length }}</div>
+        <div class="stat-label">Low Stock Items</div>
     </div>
 </div>
 
@@ -69,7 +106,7 @@
     <!-- Recent Orders -->
     <div class="card">
         <div class="card-header">
-            <h2><i class="fas fa-shopping-cart"></i> Recent Orders</h2>
+            <h2><i class="fas fa-book"></i> Recent Orders</h2>
             <a href="{{ url_for('orders') }}" class="btn btn-sm btn-outline">View All</a>
         </div>
         <div class="card-body">
@@ -78,7 +115,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Order #</th>
+                            <th>Order ID</th>
                             <th>Customer</th>
                             <th>Amount</th>
                             <th>Status</th>
@@ -89,7 +126,7 @@
                         <tr>
                             <td>{{ order['order_number'] }}</td>
                             <td>{{ order['customer_name'] }}</td>
-                            <td class="currency">{{ order['total_amount']|format_currency }}</td>
+                            <td class="currency">{{ order['total_amount']|indian_currency }}</td>
                             <td>
                                 <span class="badge badge-{% if order['status'] == 'Completed' %}success{% elif order['status'] == 'Pending' %}warning{% elif order['status'] == 'Cancelled' %}danger{% else %}info{% endif %}">
                                     {{ order['status'] }}
@@ -102,7 +139,7 @@
             </div>
             {% else %}
             <div class="empty-state">
-                <i class="fas fa-shopping-cart"></i>
+                <i class="fas fa-book"></i>
                 <p>No orders yet</p>
             </div>
             {% endif %}
@@ -174,4 +211,185 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Fetch dashboard stats
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch('/api/dashboard-stats');
+            const data = await response.json();
+            
+            // Update attendance chart
+            updateAttendanceChart(data.attendance);
+            
+            // Update orders chart
+            updateOrdersChart(data.monthly_orders);
+            
+        } catch (error) {
+            console.error('Error loading dashboard stats:', error);
+        }
+    }
+    
+    // Attendance Pie Chart
+    let attendanceChart;
+    function updateAttendanceChart(attendance) {
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        
+        if (attendanceChart) {
+            attendanceChart.destroy();
+        }
+        
+        const total = attendance.present + attendance.absent + attendance.half_day;
+        const notMarked = attendance.total - total;
+        
+        attendanceChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Half-day', 'Not Marked'],
+                datasets: [{
+                    data: [attendance.present, attendance.absent, attendance.half_day, notMarked > 0 ? notMarked : 0],
+                    backgroundColor: [
+                        '#10b981',
+                        '#ef4444',
+                        '#f59e0b',
+                        '#6b7280'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
+                }
+            }
+        });
+    }
+    
+    // Orders Line Chart
+    let ordersChart;
+    function updateOrdersChart(monthlyData) {
+        const ctx = document.getElementById('ordersChart').getContext('2d');
+        
+        if (ordersChart) {
+            ordersChart.destroy();
+        }
+        
+        const labels = monthlyData.map(d => d.month);
+        const counts = monthlyData.map(d => d.count);
+        const revenues = monthlyData.map(d => d.revenue / 1000); // In thousands
+        
+        ordersChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Orders',
+                    data: counts,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Revenue (₹K)',
+                    data: revenues,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Orders'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Revenue (₹K)'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+    
+    // Animate stat numbers
+    function animateNumbers() {
+        document.querySelectorAll('[data-count]').forEach(el => {
+            const target = parseInt(el.dataset.count);
+            const duration = 1000;
+            const step = target / (duration / 16);
+            let current = 0;
+            
+            const timer = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    el.textContent = target;
+                    clearInterval(timer);
+                } else {
+                    el.textContent = Math.floor(current);
+                }
+            }, 16);
+        });
+    }
+    
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardStats();
+        animateNumbers();
+    });
+</script>
 {% endblock %}

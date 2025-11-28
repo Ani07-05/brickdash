@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}My Attendance{% endblock %}
+{% block header %}MY ATTENDANCE{% endblock %}
+
+{% block content %}
+<div class="attendance-container">
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ present_count }}</div>
+            <div class="stat-label">Present Days</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div class="stat-value">{{ absent_count }}</div>
+            <div class="stat-label">Absent Days</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-adjust"></i>
+            </div>
+            <div class="stat-value">{{ half_day_count }}</div>
+            <div class="stat-label">Half Days</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="stat-value">
+                {% if present_count + absent_count + half_day_count > 0 %}
+                {{ ((present_count + half_day_count * 0.5) / (present_count + absent_count + half_day_count) * 100)|round|int }}%
+                {% else %}
+                0%
+                {% endif %}
+            </div>
+            <div class="stat-label">Attendance Rate</div>
+        </div>
+    </div>
+    
+    <!-- Attendance Records -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-calendar-alt"></i> This Month's Attendance</h2>
+        </div>
+        <div class="card-body">
+            {% if records %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Status</th>
+                            <th>Shift</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td><strong>{{ record.date|format_date }}</strong></td>
+                            <td>
+                                {% set day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+                                {{ day_names[record.date.weekday()] if record.date else '-' }}
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if record.status == 'Present' %}success{% elif record.status == 'Absent' %}danger{% elif record.status == 'Half-day' %}warning{% else %}secondary{% endif %}">
+                                    {{ record.status }}
+                                </span>
+                            </td>
+                            <td>{{ record.shift or 'Day' }}</td>
+                            <td>{{ record.notes or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-times"></i>
+                <p>No attendance records for this month</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.attendance-container {
+    max-width: 900px;
+}
+
+.stat-card .stat-icon.danger {
+    background: #ffebee;
+    color: #f44336;
+}
+</style>
+{% endblock %}

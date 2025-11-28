@@ -40,10 +40,10 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>{{ order.product.name }}</td>
-                    <td class="currency">₹{{ "%.2f"|format(order.product.price_per_unit) }}</td>
+                    <td>{{ order.product_name }}</td>
+                    <td class="currency">{{ order.price_per_unit|indian_currency }}</td>
                     <td>{{ order.quantity }}</td>
-                    <td class="currency"><strong>{{ order.total_amount|format_currency }}</strong></td>
+                    <td class="currency"><strong>{{ order.total_amount|indian_currency }}</strong></td>
                 </tr>
             </tbody>
         </table>

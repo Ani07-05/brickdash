@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+
+{% block title %}Payroll{% endblock %}
+{% block header %}PAYROLL MANAGEMENT{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-money-check-alt"></i> Payroll Records</h2>
+        <button type="button" class="btn btn-success" onclick="openGenerateModal()">
+            <i class="fas fa-calculator"></i> Generate Payroll
+        </button>
+    </div>
+    <div class="card-body">
+        <!-- Search Bar -->
+        <div class="search-bar mb-2">
+            <div class="d-flex gap-1 align-center" style="flex-wrap: wrap;">
+                <div class="input-icon" style="flex: 1; min-width: 250px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="payroll-search" class="form-control" 
+                           placeholder="Search by employee name..." onkeyup="searchPayroll()">
+                </div>
+                <select id="month-filter" class="form-control" style="width: auto;" onchange="filterPayroll()">
+                    <option value="">All Months</option>
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+                        {{ ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m-1] }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <select id="year-filter" class="form-control" style="width: auto;" onchange="filterPayroll()">
+                    {% for y in range(2023, 2028) %}
+                    <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+                <button onclick="filterPayroll()" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+            </div>
+        </div>
+        
+        {% if records %}
+        <div class="table-container">
+            <table id="payroll-table">
+                <thead>
+                    <tr>
+                        <th>Employee Name</th>
+                        <th>Time Period</th>
+                        <th>Amount Payable</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr data-name="{{ record.name|lower }}">
+                        <td>
+                            <a href="{{ url_for('view_employee', id=record.employee_id) }}" class="employee-link">
+                                <strong>{{ record.name }}</strong>
+                            </a>
+                            <br><small class="text-muted">{{ record.emp_id }} • {{ record.role }}</small>
+                        </td>
+                        <td>
+                            {% set month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
+                            {{ month_names[record.month-1] }} {{ record.year }}
+                        </td>
+                        <td class="currency"><strong>{{ record.net_salary|format_inr }}</strong></td>
+                        <td>
+                            <span class="badge badge-{% if record.paid %}success{% else %}warning{% endif %}">
+                                {% if record.paid %}Paid{% else %}Pending{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="action-btn view" onclick="viewPayroll({{ record.id }}, '{{ record.name }}', '{{ record.emp_id }}', '{{ record.role }}', {{ record.month }}, {{ record.year }}, {{ record.gross_salary }}, {{ record.deductions }}, {{ record.allowances|default(0) }}, {{ record.net_salary }}, {{ record.paid }})">
+                                    View
+                                </button>
+                                <button class="action-btn edit" onclick="editPayroll({{ record.id }}, {{ record.month }}, {{ record.year }}, {{ record.gross_salary }}, {{ record.deductions }}, {{ record.allowances|default(0) }}, {{ record.net_salary }})">
+                                    Edit
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-money-check-alt"></i>
+            <p>No payroll records found</p>
+            <p class="text-muted">Click "Generate Payroll" to create records based on attendance</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Generate Payroll Modal -->
+<div id="generate-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-calculator"></i> Generate Payroll</h3>
+            <button class="modal-close" onclick="closeModal('generate-modal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('generate_payroll') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Year</label>
+                    <select name="year" class="form-control" required>
+                        {% for y in range(2023, 2028) %}
+                        <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Month</label>
+                    <select name="month" class="form-control" required>
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+                            {{ ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m-1] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Employee</label>
+                    <select name="employee_id" class="form-control">
+                        <option value="">All Employees</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.employee_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('generate-modal')">Cancel</button>
+                <button type="submit" class="btn btn-success">Generate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- View Payroll Modal -->
+<div id="view-modal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-invoice-dollar"></i> Payroll Details</h3>
+            <button class="modal-close" onclick="closeModal('view-modal')">&times;</button>
+        </div>
+        <div class="modal-body" id="view-modal-body">
+            <!-- Content filled by JS -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('view-modal')">Close</button>
+            <button type="button" class="btn btn-info" onclick="printPayslip()">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button type="button" class="btn btn-primary" onclick="exportPayslipPDF()">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Payroll Modal -->
+<div id="edit-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Edit Payroll</h3>
+            <button class="modal-close" onclick="closeModal('edit-modal')">&times;</button>
+        </div>
+        <form id="edit-payroll-form" method="POST" action="">
+            <input type="hidden" name="record_id" id="edit-record-id">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Month</label>
+                        <select name="month" id="edit-month" class="form-control" required>
+                            {% for m in range(1, 13) %}
+                            <option value="{{ m }}">
+                                {{ ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m-1] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Year</label>
+                        <select name="year" id="edit-year" class="form-control" required>
+                            {% for y in range(2023, 2028) %}
+                            <option value="{{ y }}">{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Gross Salary (₹)</label>
+                    <input type="number" name="gross_salary" id="edit-gross" class="form-control" step="0.01" required onchange="calculateNet()">
+                </div>
+                <div class="form-group">
+                    <label>Deductions (₹)</label>
+                    <input type="number" name="deductions" id="edit-deductions" class="form-control" step="0.01" value="0" onchange="calculateNet()">
+                </div>
+                <div class="form-group">
+                    <label>Allowances (₹)</label>
+                    <input type="number" name="allowances" id="edit-allowances" class="form-control" step="0.01" value="0" onchange="calculateNet()">
+                </div>
+                <div class="form-group">
+                    <label>Net Payable (₹)</label>
+                    <input type="number" name="net_salary" id="edit-net" class="form-control" step="0.01" required readonly style="background: #f5f5f5; font-weight: bold;">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" name="paid" id="edit-paid">
+                        <span>Mark as Paid</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('edit-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal.active {
+        display: flex;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: slideIn 0.3s ease;
+    }
+    .modal-content.modal-lg {
+        max-width: 650px;
+    }
+    @keyframes slideIn {
+        from { transform: translateY(-50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+    .modal-body {
+        padding: 20px;
+    }
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    .payslip-container {
+        background: #f8f9fa;
+        padding: 25px;
+        border-radius: 8px;
+    }
+    .payslip-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e91e63;
+    }
+    .payslip-header h2 {
+        color: #e91e63;
+        margin-bottom: 5px;
+    }
+    .payslip-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .payslip-row.total {
+        font-weight: bold;
+        font-size: 1.1rem;
+        border-top: 2px solid #1a1a2e;
+        margin-top: 10px;
+        padding-top: 15px;
+    }
+    .employee-link {
+        color: var(--primary);
+        text-decoration: none;
+    }
+    .employee-link:hover {
+        text-decoration: underline;
+    }
+    .input-icon {
+        position: relative;
+    }
+    .input-icon i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    .input-icon .form-control {
+        padding-left: 45px;
+    }
+    .search-bar {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+    function openGenerateModal() {
+        document.getElementById('generate-modal').classList.add('active');
+    }
+    
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+    
+    function viewPayroll(id, name, empId, role, month, year, gross, deductions, allowances, net, paid) {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const statusBadge = paid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Pending</span>';
+        
+        document.getElementById('view-modal-body').innerHTML = `
+            <div class="payslip-container" id="payslip-content">
+                <div class="payslip-header">
+                    <h2><i class="fas fa-cubes"></i> BrickDash</h2>
+                    <p>Payslip for ${monthNames[month-1]} ${year}</p>
+                </div>
+                <div class="payslip-row">
+                    <span>Employee Name:</span>
+                    <strong>${name}</strong>
+                </div>
+                <div class="payslip-row">
+                    <span>Employee ID:</span>
+                    <span>${empId}</span>
+                </div>
+                <div class="payslip-row">
+                    <span>Role:</span>
+                    <span>${role}</span>
+                </div>
+                <div class="payslip-row">
+                    <span>Payroll Period:</span>
+                    <span>${monthNames[month-1]} ${year}</span>
+                </div>
+                <hr style="margin: 15px 0;">
+                <div class="payslip-row">
+                    <span>Gross Salary:</span>
+                    <span>₹${formatIndianNumber(gross)}</span>
+                </div>
+                <div class="payslip-row">
+                    <span>Deductions:</span>
+                    <span class="text-danger">- ₹${formatIndianNumber(deductions)}</span>
+                </div>
+                <div class="payslip-row">
+                    <span>Allowances:</span>
+                    <span class="text-success">+ ₹${formatIndianNumber(allowances)}</span>
+                </div>
+                <div class="payslip-row total">
+                    <span>Net Payable Amount:</span>
+                    <span>₹${formatIndianNumber(net)}</span>
+                </div>
+                <div class="payslip-row">
+                    <span>Status:</span>
+                    ${statusBadge}
+                </div>
+            </div>
+        `;
+        document.getElementById('view-modal').classList.add('active');
+    }
+    
+    function editPayroll(id, month, year, gross, deductions, allowances, net) {
+        document.getElementById('edit-record-id').value = id;
+        document.getElementById('edit-month').value = month;
+        document.getElementById('edit-year').value = year;
+        document.getElementById('edit-gross').value = gross.toFixed(2);
+        document.getElementById('edit-deductions').value = deductions.toFixed(2);
+        document.getElementById('edit-allowances').value = allowances.toFixed(2);
+        document.getElementById('edit-net').value = net.toFixed(2);
+        document.getElementById('edit-payroll-form').action = '/employees/payroll/update/' + id;
+        document.getElementById('edit-modal').classList.add('active');
+    }
+    
+    function calculateNet() {
+        const gross = parseFloat(document.getElementById('edit-gross').value) || 0;
+        const deductions = parseFloat(document.getElementById('edit-deductions').value) || 0;
+        const allowances = parseFloat(document.getElementById('edit-allowances').value) || 0;
+        const net = gross - deductions + allowances;
+        document.getElementById('edit-net').value = net.toFixed(2);
+    }
+    
+    function formatIndianNumber(num) {
+        num = parseFloat(num).toFixed(2);
+        var parts = num.toString().split(".");
+        var lastThree = parts[0].substring(parts[0].length - 3);
+        var otherNumbers = parts[0].substring(0, parts[0].length - 3);
+        if (otherNumbers !== '') lastThree = ',' + lastThree;
+        return otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree + "." + parts[1];
+    }
+    
+    function searchPayroll() {
+        const query = document.getElementById('payroll-search').value.toLowerCase();
+        const rows = document.querySelectorAll('#payroll-table tbody tr');
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            row.style.display = name.includes(query) ? '' : 'none';
+        });
+    }
+    
+    function filterPayroll() {
+        const month = document.getElementById('month-filter').value;
+        const year = document.getElementById('year-filter').value;
+        let url = '{{ url_for("payroll") }}?';
+        if (month) url += 'month=' + month + '&';
+        if (year) url += 'year=' + year;
+        window.location.href = url;
+    }
+    
+    function printPayslip() {
+        const content = document.getElementById('payslip-content').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Payslip - BrickDash</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    .payslip-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #e91e63; padding-bottom: 15px; }
+                    .payslip-header h2 { color: #e91e63; }
+                    .payslip-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; }
+                    .payslip-row.total { font-weight: bold; border-top: 2px solid #333; margin-top: 10px; }
+                    .badge { padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+                    .badge-success { background: #e8f5e9; color: #2e7d32; }
+                    .badge-warning { background: #fff3e0; color: #ef6c00; }
+                    .text-danger { color: #c62828; }
+                    .text-success { color: #2e7d32; }
+                </style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+    
+    function exportPayslipPDF() {
+        alert('PDF export functionality - In production, this would generate a PDF using a library like jsPDF');
+        printPayslip();
+    }
+    
+    // Close modal on outside click
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) closeModal(this.id);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile{% endblock %}
+{% block header %}MY PROFILE{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Card -->
+    <div class="card profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ employee.name[0]|upper }}
+            </div>
+            <div class="profile-info">
+                <h2>{{ employee.name }}</h2>
+                <span class="badge badge-info">{{ employee.role }}</span>
+                <p class="employee-id">ID: {{ employee.employee_id }}</p>
+            </div>
+        </div>
+        
+        <div class="profile-details">
+            <div class="detail-row">
+                <i class="fas fa-phone"></i>
+                <div>
+                    <label>Phone</label>
+                    <span>{{ employee.phone or 'Not provided' }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <i class="fas fa-map-marker-alt"></i>
+                <div>
+                    <label>Address</label>
+                    <span>{{ employee.address or 'Not provided' }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <i class="fas fa-calendar"></i>
+                <div>
+                    <label>Joined Date</label>
+                    <span>{{ employee.joined_date|format_date if employee.joined_date else 'N/A' }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <i class="fas fa-circle {% if employee.is_active %}text-success{% else %}text-danger{% endif %}"></i>
+                <div>
+                    <label>Status</label>
+                    <span>{% if employee.is_active %}Active{% else %}Inactive{% endif %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div class="stat-value">{{ tasks|length }}</div>
+            <div class="stat-label">Active Tasks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ tasks|selectattr('status', 'equalto', 'Completed')|list|length }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">{{ tasks|selectattr('status', 'equalto', 'In Progress')|list|length }}</div>
+            <div class="stat-label">In Progress</div>
+        </div>
+    </div>
+    
+    <!-- Recent Tasks -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-tasks"></i> My Recent Tasks</h2>
+            <a href="{{ url_for('tasks') }}" class="btn btn-sm btn-primary">View All</a>
+        </div>
+        <div class="card-body">
+            {% if tasks %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th>Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td><strong>{{ task.title }}</strong></td>
+                            <td>
+                                <span class="badge badge-{% if task.priority == 'High' %}danger{% elif task.priority == 'Medium' %}warning{% else %}secondary{% endif %}">
+                                    {{ task.priority }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if task.status == 'Completed' %}success{% elif task.status == 'In Progress' %}info{% else %}secondary{% endif %}">
+                                    {{ task.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="progress" style="width: 80px;">
+                                    <div class="progress-bar" style="width: {{ task.progress }}%;"></div>
+                                </div>
+                                <small>{{ task.progress }}%</small>
+                            </td>
+                            <td>{{ task.due_date|format_date if task.due_date else '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-clipboard-check"></i>
+                <p>No tasks assigned to you yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-container {
+    max-width: 900px;
+}
+
+.profile-card {
+    overflow: hidden;
+}
+
+.profile-header {
+    background: linear-gradient(135deg, #e91e63 0%, #ff6b6b 100%);
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: white;
+    color: #e91e63;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.profile-info h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.5rem;
+}
+
+.profile-info .badge {
+    margin-bottom: 8px;
+}
+
+.profile-info .employee-id {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.profile-details {
+    padding: 25px 30px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row i {
+    width: 30px;
+    text-align: center;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.detail-row label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.detail-row span {
+    font-weight: 500;
+}
+</style>
+{% endblock %}
