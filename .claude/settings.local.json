@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx claude-plugins:*)",
+      "Bash(python app.py:*)",
+      "Skill(frontend-design)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

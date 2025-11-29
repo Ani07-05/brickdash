@@ -126,19 +126,19 @@
         box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
     }
     
-    /* Stages Grid */
+    /* Stages Grid - 4 columns for 8 stages */
     .stages-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 25px;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
         margin-bottom: 30px;
     }
     
     .stage-card {
         background: var(--bg-card);
         border-radius: var(--radius-lg);
-        padding: 25px;
-        min-height: 400px;
+        padding: 20px;
+        min-height: 350px;
         box-shadow: var(--shadow);
     }
     
@@ -168,6 +168,13 @@
     .stage-icon.forming { background: #e3f2fd; color: #1976d2; }
     .stage-icon.drying { background: #fff3e0; color: #f57c00; }
     .stage-icon.finishing { background: #e8f5e9; color: #388e3c; }
+    .stage-icon.raw { background: #efebe9; color: #795548; }
+    .stage-icon.mix { background: #e8eaf6; color: #3f51b5; }
+    .stage-icon.semifinished { background: #fce4ec; color: #c2185b; }
+    .stage-icon.prefiring { background: #fff8e1; color: #ff8f00; }
+    .stage-icon.fired { background: #e8f5e9; color: #2e7d32; }
+    .stage-icon.consumables { background: #f3e5f5; color: #7b1fa2; }
+    .stage-icon.scrap { background: #ffebee; color: #c62828; }
     
     .stage-name {
         color: var(--text-primary);
@@ -518,6 +525,12 @@
     }
     
     /* Responsive */
+    @media (max-width: 1400px) {
+        .stages-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
     @media (max-width: 1200px) {
         .stages-grid {
             grid-template-columns: 1fr;
@@ -546,6 +559,28 @@
             gap: 15px;
             align-items: stretch;
         }
+    }
+    
+    /* PDF Report Button */
+    .report-btn {
+        background: #28a745;
+        border: none;
+        border-radius: var(--radius);
+        padding: 10px 20px;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+    
+    .report-btn:hover {
+        background: #218838;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
     }
 </style>
 
@@ -600,7 +635,14 @@
         </div>
         
         <div class="inventory-controls">
-            <input type="text" class="search-box" placeholder="Search by SKU or batch..." id="searchBox">
+            <input type="text" class="search-box" placeholder="Search by product or batch..." id="searchBox">
+            
+            {% if session.get('user_role') == 'Manager' %}
+            <a href="{{ url_for('inventory_report_pdf') }}" class="report-btn">
+                <i class="fas fa-file-pdf"></i>
+                <span>PDF Report</span>
+            </a>
+            {% endif %}
             
             <button class="add-stock-btn" onclick="openAddStockModal()">
                 <i class="fas fa-plus"></i>
@@ -615,12 +657,12 @@
         <div class="stage-card" data-stage="{{ stage.stage_number }}">
             <div class="stage-header">
                 <div class="stage-info">
-                    <div class="stage-icon {% if stage.stage_number == 1 %}forming{% elif stage.stage_number == 2 %}drying{% else %}finishing{% endif %}">
-                        <i class="fas fa-{% if stage.stage_number == 1 %}tools{% elif stage.stage_number == 2 %}sun{% else %}check-circle{% endif %}"></i>
+                    <div class="stage-icon {% if stage.stage_number == 1 %}raw{% elif stage.stage_number == 2 %}mix{% elif stage.stage_number == 3 %}semifinished{% elif stage.stage_number == 4 %}drying{% elif stage.stage_number == 5 %}prefiring{% elif stage.stage_number == 6 %}fired{% elif stage.stage_number == 7 %}consumables{% else %}scrap{% endif %}">
+                        <i class="fas fa-{% if stage.stage_number == 1 %}mountain{% elif stage.stage_number == 2 %}blender{% elif stage.stage_number == 3 %}hammer{% elif stage.stage_number == 4 %}sun{% elif stage.stage_number == 5 %}layer-group{% elif stage.stage_number == 6 %}fire{% elif stage.stage_number == 7 %}oil-can{% else %}recycle{% endif %}"></i>
                     </div>
                     <div>
                         <div class="stage-name">
-                            Stage {{ stage.stage_number }} - {{ stage.stage_name }}
+                            {{ stage.stage_name }}
                             <span class="status-badge {{ stage.status }}">{{ stage.status }}</span>
                         </div>
                     </div>
@@ -646,14 +688,14 @@
             <div class="batches-list">
                 {% if stage.batches %}
                     {% for batch in stage.batches %}
-                    <div class="batch-card" data-batch-id="{{ batch.id }}" data-sku="{{ batch.sku }}">
+                    <div class="batch-card" data-batch-id="{{ batch.id }}" data-product="{{ batch.product_name or 'Unassigned' }}">
                         <div class="batch-header">
                             <span class="batch-id">Batch {{ batch.batch_id }}</span>
                         </div>
                         <div class="batch-details">
                             <span><i class="fas fa-cube"></i> {{ "{:,}".format(batch.units) }} units</span>
                             <span><i class="fas fa-clock"></i> {{ batch.age_days }}d old</span>
-                            <span><i class="fas fa-tag"></i> SKU: {{ batch.sku }}</span>
+                            <span><i class="fas fa-box"></i> {{ batch.product_name or 'Unassigned' }}</span>
                         </div>
                         {% if batch.orders %}
                         <div class="batch-orders">
@@ -699,13 +741,18 @@
                 <label>Stage</label>
                 <select name="stage_id" required>
                     {% for stage in stages %}
-                    <option value="{{ stage.id }}">Stage {{ stage.stage_number }} - {{ stage.stage_name }}</option>
+                    <option value="{{ stage.id }}">{{ stage.stage_name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="form-group">
-                <label>SKU</label>
-                <input type="text" name="sku" value="BRICK-STD" placeholder="e.g., BRICK-STD" required>
+                <label>Product</label>
+                <select name="product_id">
+                    <option value="">-- Select Product (Optional) --</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}">{{ product.name }} ({{ product.category or 'No category' }})</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="form-group">
                 <label>Units</label>
@@ -763,7 +810,7 @@
                 <label>Transfer to Stage</label>
                 <select name="target_stage_id" id="transferTargetStage" required>
                     {% for stage in stages %}
-                    <option value="{{ stage.id }}">Stage {{ stage.stage_number }} - {{ stage.stage_name }}</option>
+                    <option value="{{ stage.id }}">{{ stage.stage_name }}</option>
                     {% endfor %}
                 </select>
             </div>

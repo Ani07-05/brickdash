@@ -4,325 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - BrickDash</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #e91e63 0%, #ff6b6b 50%, #ffc107 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .login-container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            max-width: 400px;
-        }
-        
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .login-header .logo {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #e91e63, #ff6b6b);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-        }
-        
-        .login-header .logo i {
-            font-size: 32px;
-            color: white;
-        }
-        
-        .login-header h1 {
-            font-size: 26px;
-            color: #1a1a2e;
-        }
-        
-        .login-header p {
-            color: #6c757d;
-            font-size: 14px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #1a1a2e;
-            font-size: 14px;
-        }
-        
-        .role-selector {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .role-option {
-            flex: 1;
-            text-align: center;
-            padding: 15px 10px;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: #f8f9fa;
-        }
-        
-        .role-option:hover {
-            border-color: #e91e63;
-            background: #fce4ec;
-        }
-        
-        .role-option.selected {
-            border-color: #e91e63;
-            background: #fce4ec;
-        }
-        
-        .role-option i {
-            font-size: 24px;
-            margin-bottom: 8px;
-            display: block;
-        }
-        
-        .role-option.manager i { color: #e91e63; }
-        .role-option.supervisor i { color: #ff9800; }
-        .role-option.employee i { color: #2196f3; }
-        
-        .role-option span {
-            font-size: 12px;
-            font-weight: 600;
-            color: #1a1a2e;
-        }
-        
-        .role-option input { display: none; }
-        
-        .input-wrapper {
-            position: relative;
-        }
-        
-        .input-wrapper i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #adb5bd;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 14px 15px 14px 45px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-size: 15px;
-            transition: all 0.3s;
-            background: #f8f9fa;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #e91e63;
-            background: white;
-            box-shadow: 0 0 0 4px rgba(233, 30, 99, 0.1);
-        }
-        
-        .login-btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #e91e63, #ff6b6b);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(233, 30, 99, 0.4);
-        }
-        
-        .demo-box {
-            margin-top: 25px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        
-        .demo-box h4 {
-            color: #6c757d;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-            text-align: center;
-        }
-        
-        .demo-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 13px;
-        }
-        
-        .demo-item:last-child { border-bottom: none; }
-        
-        .demo-item .role { font-weight: 600; color: #1a1a2e; }
-        .demo-item .creds { color: #6c757d; font-family: monospace; }
-        
-        .alert {
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        
-        .alert-danger {
-            background: #ffebee;
-            color: #c62828;
-            border: 1px solid #ef9a9a;
-        }
-        
-        .alert-warning {
-            background: #fff3e0;
-            color: #e65100;
-            border: 1px solid #ffcc80;
-        }
-        
-        .alert-info {
-            background: #e3f2fd;
-            color: #1565c0;
-            border: 1px solid #90caf9;
-        }
-        
-        .register-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #6c757d;
-            font-size: 14px;
-        }
-        
-        .register-link a {
-            color: #e91e63;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        .register-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
 </head>
 <body>
     <div class="login-container">
-        <div class="login-header">
-            <div class="logo">
+        <div class="login-card">
+            <div class="login-header">
                 <i class="fas fa-cubes"></i>
+                <h1>Welcome Back</h1>
+                <p>Sign in to BrickDash</p>
             </div>
-            <h1>BrickDash</h1>
-            <p>Brick Industry Management System</p>
-        </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+            <!-- Flash Messages as Alerts -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" style="margin-bottom: 24px;">
+                            <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="form-group">
-                <label>Select Role</label>
-                <div class="role-selector">
-                    <label class="role-option manager selected" onclick="selectRole(this)">
-                        <input type="radio" name="role" value="Manager" checked>
-                        <i class="fas fa-user-tie"></i>
-                        <span>Manager</span>
-                    </label>
-                    <label class="role-option supervisor" onclick="selectRole(this)">
-                        <input type="radio" name="role" value="Supervisor">
-                        <i class="fas fa-hard-hat"></i>
-                        <span>Supervisor</span>
-                    </label>
-                    <label class="role-option employee" onclick="selectRole(this)">
-                        <input type="radio" name="role" value="Employee">
-                        <i class="fas fa-user"></i>
-                        <span>Employee</span>
-                    </label>
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="form-group">
+                    <label>Select Role</label>
+                    <div style="display: flex; gap: 12px; margin-bottom: 8px;">
+                        <label class="role-card selected" onclick="selectRole(this)" style="flex: 1; text-align: center; padding: 16px 12px; border: 2px solid var(--primary-subtle); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; background: var(--primary-subtle);">
+                            <input type="radio" name="role" value="Manager" checked style="display: none;">
+                            <i class="fas fa-user-tie" style="font-size: 1.8rem; color: var(--primary); display: block; margin-bottom: 8px;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); display: block;">Manager</span>
+                        </label>
+                        <label class="role-card" onclick="selectRole(this)" style="flex: 1; text-align: center; padding: 16px 12px; border: 2px solid var(--border-medium); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; background: var(--bg-white);">
+                            <input type="radio" name="role" value="Supervisor" style="display: none;">
+                            <i class="fas fa-hard-hat" style="font-size: 1.8rem; color: var(--warning); display: block; margin-bottom: 8px;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); display: block;">Supervisor</span>
+                        </label>
+                        <label class="role-card" onclick="selectRole(this)" style="flex: 1; text-align: center; padding: 16px 12px; border: 2px solid var(--border-medium); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; background: var(--bg-white);">
+                            <input type="radio" name="role" value="Employee" style="display: none;">
+                            <i class="fas fa-user" style="font-size: 1.8rem; color: var(--success); display: block; margin-bottom: 8px;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); display: block;">Employee</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            </form>
+
+            <div style="margin-top: 28px; padding: 20px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                <h4 style="color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; text-align: center; font-weight: 600;">Demo Credentials</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-white); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                        <span style="font-weight: 600; color: var(--text-primary); font-size: 0.87rem;">Manager</span>
+                        <span style="color: var(--text-secondary); font-family: 'Courier New', monospace; font-size: 0.85rem;">admin / admin123</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-white); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                        <span style="font-weight: 600; color: var(--text-primary); font-size: 0.87rem;">Supervisor</span>
+                        <span style="color: var(--text-secondary); font-family: 'Courier New', monospace; font-size: 0.85rem;">supervisor / super123</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-white); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                        <span style="font-weight: 600; color: var(--text-primary); font-size: 0.87rem;">Employee</span>
+                        <span style="color: var(--text-secondary); font-family: 'Courier New', monospace; font-size: 0.85rem;">employee / emp123</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Username</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-user"></i>
-                    <input type="text" name="username" class="form-control" placeholder="Enter username" required>
-                </div>
+            <div style="text-align: center; margin-top: 24px; color: var(--text-secondary); font-size: 0.9rem;">
+                New employee? <a href="{{ url_for('register') }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Create an account</a>
             </div>
-
-            <div class="form-group">
-                <label>Password</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                </div>
-            </div>
-
-            <button type="submit" class="login-btn">
-                <i class="fas fa-sign-in-alt"></i> Sign In
-            </button>
-        </form>
-
-        <div class="demo-box">
-            <h4>Demo Credentials</h4>
-            <div class="demo-item">
-                <span class="role">Manager</span>
-                <span class="creds">admin / admin123</span>
-            </div>
-            <div class="demo-item">
-                <span class="role">Supervisor</span>
-                <span class="creds">supervisor / super123</span>
-            </div>
-            <div class="demo-item">
-                <span class="role">Employee</span>
-                <span class="creds">employee / emp123</span>
-            </div>
-        </div>
-        
-        <div class="register-link">
-            New employee? <a href="{{ url_for('register') }}">Create an account</a>
         </div>
     </div>
 
     <script>
         function selectRole(el) {
-            document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
+            // Remove selected from all
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+                card.style.border = '2px solid var(--border-medium)';
+                card.style.background = 'var(--bg-white)';
+            });
+
+            // Add selected to clicked
             el.classList.add('selected');
+            el.style.border = '2px solid var(--primary-subtle)';
+            el.style.background = 'var(--primary-subtle)';
             el.querySelector('input').checked = true;
         }
     </script>

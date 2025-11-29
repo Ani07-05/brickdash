@@ -3,7 +3,7 @@ BrickDash - Workforce, Order and Inventory Management System for Brick Industry
 Flask Application with SQLite Database (No external dependencies beyond Flask)
 """
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g, session, make_response
 from functools import wraps
 import sqlite3
 from datetime import datetime, date, timedelta
@@ -255,18 +255,19 @@ def init_db():
         )
     ''')
     
-    # Inventory batches table - Individual batches in each stage
+    # Inventory batches table - Individual batches in each stage (linked to products)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS inventory_batches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             batch_id TEXT UNIQUE NOT NULL,
             stage_id INTEGER NOT NULL,
-            sku TEXT NOT NULL,
+            product_id INTEGER,
             units INTEGER NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             reserved_for TEXT,
             notes TEXT,
-            FOREIGN KEY (stage_id) REFERENCES inventory_stages (id)
+            FOREIGN KEY (stage_id) REFERENCES inventory_stages (id),
+            FOREIGN KEY (product_id) REFERENCES products (id)
         )
     ''')
     
@@ -280,38 +281,23 @@ def init_db():
         )
     ''')
     
-    # Initialize default stages if not exist
+    # Initialize default stages if not exist (8 brick production stages)
     cursor.execute('SELECT COUNT(*) FROM inventory_stages')
     if cursor.fetchone()[0] == 0:
         stages = [
-            (1, 'Forming', 2000),
-            (2, 'Drying', 1500),
-            (3, 'Finishing', 1000),
+            (1, 'Raw Materials', 5000),
+            (2, 'Prepared Mix', 3000),
+            (3, 'In-Process / Semi-Finished', 2500),
+            (4, 'Drying Inventory', 2000),
+            (5, 'Pre-Firing Stock', 1500),
+            (6, 'Fired / Finished Goods', 2000),
+            (7, 'Consumables / Fuel', 1000),
+            (8, 'Scrap / Rework', 500),
         ]
         cursor.executemany('''
             INSERT INTO inventory_stages (stage_number, stage_name, capacity)
             VALUES (?, ?, ?)
         ''', stages)
-        
-        # Add sample batches
-        batches = [
-            ('B001', 1, 'BRICK-STD', 500, 'ORD-123'),
-            ('B002', 1, 'BRICK-STD', 750, None),
-            ('B003', 2, 'BRICK-STD', 400, 'ORD-124,ORD-125'),
-            ('B004', 3, 'BRICK-STD', 300, 'ORD-126'),
-        ]
-        for batch in batches:
-            cursor.execute('''
-                INSERT INTO inventory_batches (batch_id, stage_id, sku, units, created_at)
-                VALUES (?, ?, ?, ?, datetime('now', ?))
-            ''', (batch[0], batch[1], batch[2], batch[3], f'-{["2", "1", "5", "8"][batches.index(batch)]} days'))
-            
-            # Link orders if any
-            if batch[4]:
-                batch_row = cursor.execute('SELECT id FROM inventory_batches WHERE batch_id = ?', (batch[0],)).fetchone()
-                for order in batch[4].split(','):
-                    cursor.execute('INSERT INTO batch_orders (batch_id, order_number) VALUES (?, ?)', 
-                                 (batch_row[0], order.strip()))
     
     # Users table for authentication
     cursor.execute('''
@@ -629,6 +615,7 @@ def my_attendance():
 # ==================== ROUTES ====================
 
 @app.route('/')
+@login_required
 def dashboard():
     db = get_db()
     
@@ -667,12 +654,17 @@ def dashboard():
 # ==================== PRODUCTS ====================
 
 @app.route('/products')
+@login_required
 def products():
+    if session.get('user_role') not in ['Manager', 'Supervisor']:
+        flash('Access denied. Manager or Supervisor role required.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     all_products = db.execute('SELECT * FROM products ORDER BY id DESC').fetchall()
     return render_template('products.html', products=all_products)
 
 @app.route('/products/add', methods=['GET', 'POST'])
+@login_required
 def add_product():
     if request.method == 'POST':
         db = get_db()
@@ -693,6 +685,7 @@ def add_product():
     return render_template('product_form.html', product=None)
 
 @app.route('/products/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_product(id):
     db = get_db()
     product = db.execute('SELECT * FROM products WHERE id = ?', (id,)).fetchone()
@@ -719,6 +712,7 @@ def edit_product(id):
     return render_template('product_form.html', product=product)
 
 @app.route('/products/delete/<int:id>')
+@login_required
 def delete_product(id):
     db = get_db()
     db.execute('DELETE FROM products WHERE id = ?', (id,))
@@ -730,6 +724,7 @@ def delete_product(id):
 # ==================== ORDERS ====================
 
 @app.route('/orders')
+@login_required
 def orders():
     db = get_db()
     status_filter = request.args.get('status', '')
@@ -751,6 +746,7 @@ def orders():
     return render_template('orders.html', orders=all_orders, current_status=status_filter)
 
 @app.route('/orders/add', methods=['GET', 'POST'])
+@login_required
 def add_order():
     db = get_db()
     products_list = db.execute('SELECT * FROM products').fetchall()
@@ -785,6 +781,7 @@ def add_order():
     return render_template('order_form.html', order=None, products=products_list)
 
 @app.route('/orders/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_order(id):
     db = get_db()
     order = db.execute('SELECT * FROM orders WHERE id = ?', (id,)).fetchone()
@@ -824,6 +821,7 @@ def edit_order(id):
     return render_template('order_form.html', order=order, products=products_list)
 
 @app.route('/orders/view/<int:id>')
+@login_required
 def view_order(id):
     db = get_db()
     order = db.execute('''
@@ -839,6 +837,7 @@ def view_order(id):
     return render_template('order_view.html', order=order)
 
 @app.route('/orders/delete/<int:id>')
+@login_required
 def delete_order(id):
     db = get_db()
     db.execute('DELETE FROM orders WHERE id = ?', (id,))
@@ -850,7 +849,13 @@ def delete_order(id):
 # ==================== INVENTORY ====================
 
 @app.route('/inventory')
+@login_required
 def inventory():
+    # Only Manager and Supervisor can access inventory
+    if session.get('user_role') not in ['Manager', 'Supervisor']:
+        flash('Access denied. Manager or Supervisor role required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
     db = get_db()
     
     # Get all stages with their batches
@@ -864,9 +869,10 @@ def inventory():
     
     for stage in stages:
         batches = db.execute('''
-            SELECT b.*, 
+            SELECT b.*, p.name as product_name,
                    CAST((julianday('now') - julianday(b.created_at)) AS INTEGER) as age_days
             FROM inventory_batches b
+            LEFT JOIN products p ON b.product_id = p.id
             WHERE b.stage_id = ?
             ORDER BY b.created_at DESC
         ''', (stage['id'],)).fetchall()
@@ -922,16 +928,13 @@ def inventory():
     ''', (today,)).fetchone()[0]
     productivity = int((completed_tasks_today / total_tasks_today * 100) if total_tasks_today > 0 else 87)
     
-    # Products for legacy support
+    # Products for dropdown (linked to batches)
     products_list = db.execute('SELECT * FROM products').fetchall()
     logs = db.execute('''
         SELECT l.*, p.name as product_name FROM inventory_logs l
         JOIN products p ON l.product_id = p.id
         ORDER BY l.timestamp DESC LIMIT 20
     ''').fetchall()
-    
-    # Get SKUs for dropdown
-    skus = db.execute('SELECT DISTINCT sku FROM inventory_batches').fetchall()
     
     return render_template('inventory.html', 
                          stages=stages_data,
@@ -940,18 +943,21 @@ def inventory():
                          open_orders=open_orders,
                          productivity=productivity,
                          products=products_list,
-                         logs=logs,
-                         skus=skus)
+                         logs=logs)
 
 
 @app.route('/inventory/add-batch', methods=['POST'])
+@login_required
 def add_batch():
     db = get_db()
     
     stage_id = int(request.form.get('stage_id'))
-    sku = request.form.get('sku', 'BRICK-STD')
+    product_id = request.form.get('product_id')
     units = int(request.form.get('units', 0))
     orders = request.form.get('orders', '').strip()
+    
+    # Convert product_id to int if provided
+    product_id = int(product_id) if product_id else None
     
     # Generate batch ID
     last_batch = db.execute("SELECT batch_id FROM inventory_batches WHERE batch_id LIKE 'B%' ORDER BY id DESC LIMIT 1").fetchone()
@@ -966,9 +972,9 @@ def add_batch():
     
     # Insert batch
     db.execute('''
-        INSERT INTO inventory_batches (batch_id, stage_id, sku, units)
+        INSERT INTO inventory_batches (batch_id, stage_id, product_id, units)
         VALUES (?, ?, ?, ?)
-    ''', (new_batch_id, stage_id, sku, units))
+    ''', (new_batch_id, stage_id, product_id, units))
     
     # Link orders if provided
     if orders:
@@ -985,6 +991,7 @@ def add_batch():
 
 
 @app.route('/inventory/transfer-batch', methods=['POST'])
+@login_required
 def transfer_batch():
     db = get_db()
     
@@ -1003,6 +1010,7 @@ def transfer_batch():
 
 
 @app.route('/inventory/adjust-batch', methods=['POST'])
+@login_required
 def adjust_batch():
     db = get_db()
     
@@ -1022,6 +1030,7 @@ def adjust_batch():
 
 
 @app.route('/inventory/reserve-batch', methods=['POST'])
+@login_required
 def reserve_batch():
     db = get_db()
     
@@ -1041,6 +1050,7 @@ def reserve_batch():
 
 
 @app.route('/inventory/delete-batch/<int:id>')
+@login_required
 def delete_batch(id):
     db = get_db()
     batch = db.execute('SELECT * FROM inventory_batches WHERE id = ?', (id,)).fetchone()
@@ -1051,7 +1061,216 @@ def delete_batch(id):
         flash(f'Batch {batch["batch_id"]} deleted!', 'success')
     return redirect(url_for('inventory'))
 
+
+@app.route('/inventory/report/pdf')
+@login_required
+def inventory_report_pdf():
+    """Generate PDF report for inventory - Manager only"""
+    if session.get('user_role') != 'Manager':
+        flash('Access denied. Manager role required.', 'danger')
+        return redirect(url_for('inventory'))
+    
+    try:
+        from reportlab.lib.pagesizes import A4, letter
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.units import inch
+    except ImportError:
+        flash('PDF library not installed. Please install reportlab.', 'danger')
+        return redirect(url_for('inventory'))
+    
+    db = get_db()
+    
+    # Create PDF buffer
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title style
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        textColor=colors.HexColor('#e91e63'),
+        alignment=1  # Center
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=20,
+        textColor=colors.grey,
+        alignment=1
+    )
+    
+    heading_style = ParagraphStyle(
+        'SectionHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=10,
+        spaceBefore=20,
+        textColor=colors.HexColor('#333333')
+    )
+    
+    # Title
+    elements.append(Paragraph("BrickDash Inventory Report", title_style))
+    elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %H:%M')}", subtitle_style))
+    elements.append(Spacer(1, 20))
+    
+    # Get stages data
+    stages = db.execute('SELECT * FROM inventory_stages ORDER BY stage_number').fetchall()
+    total_inventory = 0
+    total_capacity = 0
+    
+    # Summary section
+    elements.append(Paragraph("Inventory Summary by Stage", heading_style))
+    
+    summary_data = [['Stage', 'Current Qty', 'Capacity', 'Utilization', 'Status']]
+    for stage in stages:
+        current_qty = db.execute('SELECT COALESCE(SUM(units), 0) FROM inventory_batches WHERE stage_id = ?', 
+                                (stage['id'],)).fetchone()[0]
+        total_inventory += current_qty
+        total_capacity += stage['capacity']
+        utilization = (current_qty / stage['capacity'] * 100) if stage['capacity'] > 0 else 0
+        
+        if utilization >= 80:
+            status = 'Critical'
+        elif utilization >= 50:
+            status = 'Warning'
+        else:
+            status = 'Healthy'
+        
+        summary_data.append([
+            stage['stage_name'],
+            f"{current_qty:,}",
+            f"{stage['capacity']:,}",
+            f"{utilization:.1f}%",
+            status
+        ])
+    
+    # Add totals row
+    overall_util = (total_inventory / total_capacity * 100) if total_capacity > 0 else 0
+    summary_data.append(['TOTAL', f"{total_inventory:,}", f"{total_capacity:,}", f"{overall_util:.1f}%", '-'])
+    
+    summary_table = Table(summary_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1*inch, 1*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e91e63')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f8f9fa')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f9fa')]),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 30))
+    
+    # Batch details for each stage
+    elements.append(Paragraph("Batch Details by Stage", heading_style))
+    
+    for stage in stages:
+        batches = db.execute('''
+            SELECT b.*, p.name as product_name,
+                   CAST((julianday('now') - julianday(b.created_at)) AS INTEGER) as age_days
+            FROM inventory_batches b
+            LEFT JOIN products p ON b.product_id = p.id
+            WHERE b.stage_id = ?
+            ORDER BY b.created_at DESC
+        ''', (stage['id'],)).fetchall()
+        
+        if batches:
+            elements.append(Spacer(1, 15))
+            elements.append(Paragraph(f"{stage['stage_name']}", styles['Heading3']))
+            
+            batch_data = [['Batch ID', 'Product', 'Units', 'Age (Days)', 'Created']]
+            for batch in batches:
+                product_name = batch['product_name'] if batch['product_name'] else 'Unassigned'
+                # Handle datetime object properly
+                created_at = batch['created_at']
+                if created_at:
+                    if isinstance(created_at, str):
+                        created_str = created_at[:10]
+                    else:
+                        created_str = created_at.strftime('%Y-%m-%d')
+                else:
+                    created_str = '-'
+                batch_data.append([
+                    batch['batch_id'],
+                    product_name[:20] + '...' if len(product_name) > 20 else product_name,
+                    f"{batch['units']:,}",
+                    str(batch['age_days']),
+                    created_str
+                ])
+            
+            batch_table = Table(batch_data, colWidths=[1*inch, 2*inch, 1*inch, 1*inch, 1.5*inch])
+            batch_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#6c757d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dee2e6')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+            ]))
+            elements.append(batch_table)
+    
+    elements.append(Spacer(1, 30))
+    
+    # Products summary
+    products = db.execute('SELECT * FROM products ORDER BY name').fetchall()
+    if products:
+        elements.append(Paragraph("Products Summary", heading_style))
+        
+        product_data = [['Name', 'Category', 'Price/Unit', 'Stock', 'In Batches']]
+        for product in products:
+            in_batches = db.execute('SELECT COALESCE(SUM(units), 0) FROM inventory_batches WHERE product_id = ?',
+                                   (product['id'],)).fetchone()[0]
+            product_data.append([
+                product['name'][:25] + '...' if len(product['name']) > 25 else product['name'],
+                product['category'] or '-',
+                f"Rs. {product['price_per_unit']:,.2f}",
+                f"{product['stock_quantity']:,}",
+                f"{in_batches:,}"
+            ])
+        
+        product_table = Table(product_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1*inch, 1*inch])
+        product_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#28a745')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dee2e6')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ]))
+        elements.append(product_table)
+    
+    # Footer
+    elements.append(Spacer(1, 40))
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, textColor=colors.grey, alignment=1)
+    elements.append(Paragraph(f"Report generated by BrickDash ERP System | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", footer_style))
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    response = make_response(buffer.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=inventory_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    
+    return response
+
 @app.route('/inventory/update/<int:id>', methods=['POST'])
+@login_required
 def update_inventory(id):
     db = get_db()
     product = db.execute('SELECT * FROM products WHERE id = ?', (id,)).fetchone()
@@ -1079,12 +1298,17 @@ def update_inventory(id):
 # ==================== EMPLOYEES ====================
 
 @app.route('/employees')
+@login_required
 def employees():
+    if session.get('user_role') not in ['Manager', 'Supervisor']:
+        flash('Access denied. Manager or Supervisor role required.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     all_employees = db.execute('SELECT * FROM employees ORDER BY id DESC').fetchall()
     return render_template('employees.html', employees=all_employees)
 
 @app.route('/employees/add', methods=['GET', 'POST'])
+@login_required
 def add_employee():
     if request.method == 'POST':
         db = get_db()
@@ -1106,6 +1330,7 @@ def add_employee():
     return render_template('employee_form.html', employee=None)
 
 @app.route('/employees/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_employee(id):
     db = get_db()
     employee = db.execute('SELECT * FROM employees WHERE id = ?', (id,)).fetchone()
@@ -1134,6 +1359,7 @@ def edit_employee(id):
     return render_template('employee_form.html', employee=employee)
 
 @app.route('/employees/view/<int:id>')
+@login_required
 def view_employee(id):
     db = get_db()
     employee = db.execute('SELECT * FROM employees WHERE id = ?', (id,)).fetchone()
@@ -1145,6 +1371,7 @@ def view_employee(id):
     return render_template('employee_view.html', employee=employee)
 
 @app.route('/employees/delete/<int:id>')
+@login_required
 def delete_employee(id):
     db = get_db()
     db.execute('DELETE FROM employees WHERE id = ?', (id,))
@@ -1156,7 +1383,11 @@ def delete_employee(id):
 # ==================== ATTENDANCE ====================
 
 @app.route('/employees/attendance')
+@login_required
 def attendance_registry():
+    if session.get('user_role') not in ['Manager', 'Supervisor']:
+        flash('Access denied. Manager or Supervisor role required.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     selected_date = request.args.get('date', date.today().strftime('%Y-%m-%d'))
     
@@ -1177,6 +1408,7 @@ def attendance_registry():
                          selected_date=attendance_date)
 
 @app.route('/employees/attendance/save', methods=['POST'])
+@login_required
 def save_attendance():
     db = get_db()
     attendance_date = parse_date(request.form.get('attendance_date', '')) or date.today()
@@ -1207,6 +1439,7 @@ def save_attendance():
     return redirect(url_for('attendance_registry', date=attendance_date.strftime('%Y-%m-%d')))
 
 @app.route('/employees/attendance/records')
+@login_required
 def attendance_records():
     db = get_db()
     selected_date = request.args.get('date', '')
@@ -1235,6 +1468,7 @@ def attendance_records():
     return render_template('attendance_records.html', records=records, selected_date=selected_date)
 
 @app.route('/employees/attendance/mark-all', methods=['POST'])
+@login_required
 def mark_all_attendance():
     db = get_db()
     attendance_date = parse_date(request.form.get('attendance_date', '')) or date.today()
@@ -1263,6 +1497,7 @@ def mark_all_attendance():
 # ==================== TASKS ====================
 
 @app.route('/employees/tasks')
+@login_required
 def tasks():
     db = get_db()
     status_filter = request.args.get('status', '')
@@ -1284,6 +1519,7 @@ def tasks():
     return render_template('tasks.html', tasks=all_tasks, current_status=status_filter)
 
 @app.route('/employees/tasks/add', methods=['GET', 'POST'])
+@login_required
 def add_task():
     db = get_db()
     employees_list = db.execute('SELECT * FROM employees WHERE is_active = 1').fetchall()
@@ -1313,6 +1549,7 @@ def add_task():
     return render_template('task_form.html', task=None, employees=employees_list)
 
 @app.route('/employees/tasks/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_task(id):
     db = get_db()
     task = db.execute('SELECT * FROM tasks WHERE id = ?', (id,)).fetchone()
@@ -1348,6 +1585,7 @@ def edit_task(id):
     return render_template('task_form.html', task=task, employees=employees_list)
 
 @app.route('/employees/tasks/delete/<int:id>')
+@login_required
 def delete_task(id):
     db = get_db()
     db.execute('DELETE FROM tasks WHERE id = ?', (id,))
@@ -1359,6 +1597,7 @@ def delete_task(id):
 # ==================== TASK ROTATION MATRIX ====================
 
 @app.route('/employees/tasks/rotation')
+@login_required
 def task_rotation():
     """Display task rotation matrix showing fair distribution"""
     db = get_db()
@@ -1534,7 +1773,11 @@ def get_rotation_matrix():
 # ==================== SALARY ====================
 
 @app.route('/employees/salary')
+@login_required
 def salary():
+    if session.get('user_role') != 'Manager':
+        flash('Access denied. Manager role required.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     month = int(request.args.get('month', date.today().month))
     year = int(request.args.get('year', date.today().year))
@@ -1551,6 +1794,7 @@ def salary():
                          current_month=month, current_year=year)
 
 @app.route('/employees/salary/generate', methods=['POST'])
+@login_required
 def generate_salary():
     db = get_db()
     month = int(request.form.get('month', date.today().month))
@@ -1594,6 +1838,7 @@ def generate_salary():
     return redirect(url_for('salary', month=month, year=year))
 
 @app.route('/employees/salary/report')
+@login_required
 def salary_report():
     db = get_db()
     month = int(request.args.get('month', date.today().month))
@@ -1619,6 +1864,7 @@ def salary_report():
                          total_net=total_net)
 
 @app.route('/employees/salary/download-csv')
+@login_required
 def download_salary_csv():
     db = get_db()
     month = int(request.args.get('month', date.today().month))
@@ -1659,7 +1905,11 @@ def download_salary_csv():
 # ==================== PAYROLL ====================
 
 @app.route('/employees/payroll')
+@login_required
 def payroll():
+    if session.get('user_role') != 'Manager':
+        flash('Access denied. Manager role required.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     month = int(request.args.get('month', date.today().month))
     year = int(request.args.get('year', date.today().year))
@@ -1677,6 +1927,7 @@ def payroll():
                          current_month=month, current_year=year)
 
 @app.route('/employees/payroll/view/<int:id>')
+@login_required
 def view_payroll(id):
     db = get_db()
     record = db.execute('''
@@ -1705,6 +1956,7 @@ def view_payroll(id):
     })
 
 @app.route('/employees/payroll/update/<int:id>', methods=['POST'])
+@login_required
 def update_payroll(id):
     db = get_db()
     data = request.get_json() if request.is_json else request.form
@@ -1729,6 +1981,7 @@ def update_payroll(id):
     return redirect(url_for('payroll'))
 
 @app.route('/employees/payroll/generate', methods=['POST'])
+@login_required
 def generate_payroll():
     db = get_db()
     data = request.get_json() if request.is_json else request.form

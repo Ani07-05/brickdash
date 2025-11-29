@@ -49,7 +49,7 @@
                 </div>
                 <a href="{{ url_for('employees') }}" class="nav-item {% if request.endpoint == 'employees' or 'employee' in request.endpoint %}active{% endif %}">
                     <i class="fas fa-id-card"></i>
-                    <span>Profiles</span>
+                    <span>Employees</span>
                 </a>
                 <div class="nav-submenu">
                     <a href="{{ url_for('attendance_registry') }}" class="nav-item {% if 'attendance' in request.endpoint %}active{% endif %}">
@@ -120,15 +120,16 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="page-header">
-                <h1>{% block header %}DASHBOARD{% endblock %}</h1>
+                <h1>{% block header %}Dashboard{% endblock %}</h1>
                 <div class="header-actions">
                     {% if session.get('user_id') %}
-                    <i class="fas fa-bell" style="font-size: 1.2rem; cursor: pointer;"></i>
+                    <i class="fas fa-envelope"></i>
+                    <i class="fas fa-bell"></i>
                     <div class="user-badge">
                         <div class="user-avatar">{{ session.get('username', 'U')[0]|upper }}</div>
                         <div class="user-info">
                             <span class="user-name">{{ session.get('username', 'User') }}</span>
-                            <span class="user-role-tag {% if session.get('user_role') == 'Manager' %}role-manager{% elif session.get('user_role') == 'Supervisor' %}role-supervisor{% else %}role-employee{% endif %}">{{ session.get('user_role', 'Guest') }}</span>
+                            <span class="user-role-tag">{{ session.get('user_role', 'Guest') }}</span>
                         </div>
                     </div>
                     {% else %}
@@ -138,32 +139,82 @@
             </header>
 
             <div class="content-area">
-                <!-- Flash Messages -->
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">
-                                <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-
                 {% block content %}{% endblock %}
             </div>
         </main>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Flash Messages to Toast -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const container = document.getElementById('toastContainer');
+                    {% for category, message in messages %}
+                    showToast('{{ category }}', '{{ message|safe }}');
+                    {% endfor %}
+                });
+            </script>
+        {% endif %}
+    {% endwith %}
+
     <script>
-        // Auto-hide alerts after 3 seconds
-        document.querySelectorAll('.alert').forEach(function(alert) {
-            setTimeout(function() {
-                alert.style.opacity = '0';
+        // Toast notification system
+        function showToast(type, message, title = null) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = {
+                'success': 'fa-check-circle',
+                'danger': 'fa-exclamation-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            };
+
+            const titles = {
+                'success': 'Success',
+                'danger': 'Error',
+                'error': 'Error',
+                'warning': 'Warning',
+                'info': 'Info'
+            };
+
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || 'fa-info-circle'} toast-icon"></i>
+                <div class="toast-content">
+                    ${title ? `<div class="toast-title">${title}</div>` : `<div class="toast-title">${titles[type] || 'Notification'}</div>`}
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(120%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Auto-hide legacy alerts after 3 seconds (if any exist)
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.alert').forEach(function(alert) {
                 setTimeout(function() {
-                    alert.remove();
-                }, 300);
-            }, 3000);
+                    alert.style.opacity = '0';
+                    setTimeout(function() {
+                        alert.remove();
+                    }, 300);
+                }, 3000);
+            });
         });
     </script>
     {% block scripts %}{% endblock %}

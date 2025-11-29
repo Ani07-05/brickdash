@@ -6,232 +6,75 @@
     <title>Register - BrickDash</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #e91e63 0%, #ff6b6b 50%, #ffc107 100%);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .register-container {
-            width: 100%;
-            max-width: 450px;
-            padding: 20px;
-        }
-        
-        .register-card {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        
-        .register-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .register-header i {
-            font-size: 3rem;
-            color: #e91e63;
-            margin-bottom: 15px;
-            display: block;
-        }
-        
-        .register-header h1 {
-            font-size: 1.8rem;
-            color: #212529;
-            margin: 0 0 8px 0;
-        }
-        
-        .register-header p {
-            color: #6c757d;
-            font-size: 0.95rem;
-            margin: 0;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #212529;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s;
-            box-sizing: border-box;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #e91e63;
-            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
-        .register-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #e91e63, #ff6b6b);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-        
-        .register-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.4);
-        }
-        
-        .login-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #6c757d;
-        }
-        
-        .login-link a {
-            color: #e91e63;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-        
-        .alert {
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .alert-danger {
-            background: #ffebee;
-            color: #c62828;
-            border-left: 4px solid #f44336;
-        }
-        
-        .alert-success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #4caf50;
-        }
-        
-        .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            color: #1565c0;
-        }
-        
-        .info-box i {
-            margin-right: 8px;
-        }
-        
-        .password-hint {
-            font-size: 0.8rem;
-            color: #6c757d;
-            margin-top: 5px;
-        }
-    </style>
 </head>
 <body>
-    <div class="register-container">
-        <div class="register-card">
-            <div class="register-header">
+    <div class="login-container">
+        <div class="login-card" style="max-width: 500px;">
+            <div class="login-header">
                 <i class="fas fa-user-plus"></i>
                 <h1>Create Account</h1>
                 <p>Register as an Employee</p>
             </div>
-            
+
             <!-- Flash Messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
+                        <div class="alert alert-{{ category }}" style="margin-bottom: 24px;">
                             <i class="fas fa-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %}"></i>
                             {{ message }}
                         </div>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-            
-            <div class="info-box">
-                <i class="fas fa-info-circle"></i>
+
+            <!-- Info Box -->
+            <div style="background: var(--info-bg); border-left: 3px solid var(--info); padding: 14px 16px; border-radius: var(--radius); margin-bottom: 24px; font-size: 0.87rem; color: var(--info-text);">
+                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
                 New registrations are created as <strong>Employee</strong> accounts. Contact admin for Manager/Supervisor access.
             </div>
-            
+
             <form method="POST">
                 <div class="form-group">
-                    <label for="name">Full Name *</label>
-                    <input type="text" id="name" name="name" class="form-control" 
-                           placeholder="Enter your full name" required>
+                    <label for="name">Full Name <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="name" name="name" class="form-control"
+                           placeholder="Enter your full name" required autofocus>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="username">Username *</label>
-                    <input type="text" id="username" name="username" class="form-control" 
+                    <label for="username">Username <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="username" name="username" class="form-control"
                            placeholder="Choose a username" required minlength="3">
-                    <p class="password-hint">At least 3 characters</p>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; margin-bottom: 0;">At least 3 characters</p>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" name="phone" class="form-control" 
-                           placeholder="Enter phone number">
+                    <input type="tel" id="phone" name="phone" class="form-control"
+                           placeholder="Enter phone number (optional)">
                 </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password" class="form-control" 
-                               placeholder="Password" required minlength="6">
+
+                <div class="form-row" style="gap: 16px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="password">Password <span style="color: var(--danger);">*</span></label>
+                        <input type="password" id="password" name="password" class="form-control"
+                               placeholder="Create password" required minlength="6">
                     </div>
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm *</label>
-                        <input type="password" id="confirm_password" name="confirm_password" class="form-control" 
-                               placeholder="Confirm" required>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="confirm_password">Confirm <span style="color: var(--danger);">*</span></label>
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-control"
+                               placeholder="Confirm password" required>
                     </div>
                 </div>
-                <p class="password-hint" style="margin-top: -10px;">At least 6 characters</p>
-                
-                <button type="submit" class="register-btn">
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; margin-bottom: 20px;">At least 6 characters</p>
+
+                <button type="submit" class="login-btn">
                     <i class="fas fa-user-plus"></i> Create Account
                 </button>
             </form>
-            
-            <div class="login-link">
-                Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+
+            <div style="text-align: center; margin-top: 24px; color: var(--text-secondary); font-size: 0.9rem;">
+                Already have an account? <a href="{{ url_for('login') }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Login here</a>
             </div>
         </div>
     </div>

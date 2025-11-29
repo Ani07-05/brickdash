@@ -1,14 +1,40 @@
 {% extends 'base.html' %}
 
-{% block title %}Employee Profiles{% endblock %}
-{% block header %}EMPLOYEE PROFILES{% endblock %}
+{% block title %}Employees{% endblock %}
+{% block header %}Employees{% endblock %}
 
 {% block content %}
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-value">{{ employees|length if employees else 0 }}</div>
+        <div class="stat-label">Total employees</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="stat-value">{{ employees|selectattr('is_active')|list|length if employees else 0 }}</div>
+        <div class="stat-label">Active employees</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon info">
+            <i class="fas fa-chart-bar"></i>
+        </div>
+        <div class="stat-value">{% if employees and employees|selectattr('is_active')|list|length > 0 %}{{ ((employees|selectattr('is_active')|list|length / employees|length) * 100)|int }}%{% else %}0%{% endif %}</div>
+        <div class="stat-label">Yearly goal</div>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header">
-        <h2><i class="fas fa-id-card"></i> Employee Profiles</h2>
+        <h2>Complete list of employees</h2>
         <a href="{{ url_for('add_employee') }}" class="btn btn-primary">
-            <i class="fas fa-user-plus"></i> Add Employee
+            <i class="fas fa-plus"></i> Add employee
         </a>
     </div>
     <div class="card-body">
@@ -19,10 +45,10 @@
                 <input type="text" id="employeeSearch" class="form-control search-input" placeholder="Search by Name, ID, Role...">
             </div>
         </div>
-        
+
         <!-- Filter by Status -->
         <div class="filter-bar mb-2">
-            <label>Filter by Status:</label>
+            <label>Filter:</label>
             <button class="btn btn-sm btn-primary" onclick="filterStatus('all')">All</button>
             <button class="btn btn-sm btn-outline" onclick="filterStatus('active')">Active</button>
             <button class="btn btn-sm btn-outline" onclick="filterStatus('inactive')">Inactive</button>
@@ -33,34 +59,52 @@
             <table id="employeesTable">
                 <thead>
                     <tr>
+                        <th style="width: 50px;"></th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Role</th>
-                        <th>Phone</th>
-                        <th>Salary</th>
+                        <th>Phone no / Email</th>
+                        <th>Project</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for employee in employees %}
                     <tr class="employee-row" data-status="{{ 'active' if employee.is_active else 'inactive' }}">
-                        <td><strong>{{ employee.employee_id }}</strong></td>
-                        <td><strong>{{ employee.name }}</strong></td>
-                        <td>{{ employee.role }}</td>
-                        <td>{{ employee.phone or '-' }}</td>
-                        <td class="currency">{{ employee.salary|indian_currency }}</td>
+                        <td>
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                {{ employee.name[0]|upper }}
+                            </div>
+                        </td>
+                        <td><strong style="color: var(--text-primary);">{{ employee.employee_id }}</strong></td>
+                        <td>
+                            <strong style="color: var(--text-primary);">{{ employee.name }}</strong>
+                        </td>
+                        <td style="color: var(--text-secondary);">{{ employee.role }}</td>
+                        <td style="color: var(--text-secondary); font-size: 0.87rem;">
+                            {{ employee.phone or 'N/A' }}<br>
+                            <span style="color: var(--text-tertiary); font-size: 0.8rem;">{{ employee.email if employee.email else '' }}</span>
+                        </td>
+                        <td style="color: var(--text-secondary);">{{ employee.department if employee.department else 'BrickDash' }}</td>
                         <td>
                             {% if employee.is_active %}
-                            <span class="badge badge-success">Active</span>
+                            <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Active</span>
                             {% else %}
-                            <span class="badge badge-danger">Inactive</span>
+                            <span class="badge badge-secondary"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Inactive</span>
                             {% endif %}
                         </td>
                         <td>
                             <div class="btn-group">
-                                <a href="{{ url_for('view_employee', id=employee.id) }}" class="action-btn view">View</a>
-                                <a href="{{ url_for('edit_employee', id=employee.id) }}" class="action-btn edit">Edit</a>
+                                <a href="{{ url_for('view_employee', id=employee.id) }}" class="action-btn view" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('edit_employee', id=employee.id) }}" class="action-btn edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="action-btn delete" style="border: none; cursor: pointer;" title="More" onclick="alert('More options coming soon')">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
