@@ -4,131 +4,800 @@
 {% block header %}INVENTORY MANAGEMENT{% endblock %}
 
 {% block content %}
-<div class="grid-2">
-    <!-- Current Stock -->
-    <div class="card">
-        <div class="card-header">
-            <h2><i class="fas fa-warehouse"></i> Current Stock</h2>
+<style>
+    /* Inventory Stats Bar */
+    .inventory-stats-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .inventory-stat-card {
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: 20px 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: var(--shadow);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .inventory-stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .inventory-stat-content h3 {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .inventory-stat-content .value {
+        color: var(--text-primary);
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    
+    .inventory-stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    
+    .inventory-stat-icon.workforce { background: #e3f2fd; color: #2196f3; }
+    .inventory-stat-icon.orders { background: #e8f5e9; color: #4caf50; }
+    .inventory-stat-icon.inventory { background: var(--primary-light); color: var(--primary); }
+    .inventory-stat-icon.productivity { background: #fff3e0; color: #ff9800; }
+    
+    /* Inventory Management Header */
+    .inventory-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .inventory-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--text-primary);
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+    
+    .inventory-title i {
+        color: var(--primary);
+    }
+    
+    .inventory-controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .search-box {
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 10px 18px;
+        color: var(--text-primary);
+        width: 280px;
+        font-size: 0.9rem;
+        transition: border-color 0.2s ease;
+    }
+    
+    .search-box:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    
+    .search-box::placeholder {
+        color: var(--text-light);
+    }
+    
+    .add-stock-btn {
+        background: var(--primary);
+        border: none;
+        border-radius: var(--radius);
+        padding: 10px 20px;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .add-stock-btn:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+    }
+    
+    /* Stages Grid */
+    .stages-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .stage-card {
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: 25px;
+        min-height: 400px;
+        box-shadow: var(--shadow);
+    }
+    
+    .stage-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+    
+    .stage-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .stage-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+    
+    .stage-icon.forming { background: #e3f2fd; color: #1976d2; }
+    .stage-icon.drying { background: #fff3e0; color: #f57c00; }
+    .stage-icon.finishing { background: #e8f5e9; color: #388e3c; }
+    
+    .stage-name {
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .stage-stats {
+        text-align: right;
+    }
+    
+    .stage-quantity {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .stage-updated {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-left: 10px;
+    }
+    
+    .status-badge.healthy {
+        background: #e8f5e9;
+        color: #4caf50;
+    }
+    
+    .status-badge.warning {
+        background: #fff3e0;
+        color: #e65100;
+    }
+    
+    .status-badge.critical {
+        background: #ffebee;
+        color: #f44336;
+    }
+    
+    /* Capacity Bar */
+    .capacity-section {
+        margin-bottom: 25px;
+    }
+    
+    .capacity-label {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+    }
+    
+    .capacity-bar {
+        height: 8px;
+        background: var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .capacity-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    
+    .capacity-fill.healthy { background: linear-gradient(90deg, #4caf50, #81c784); }
+    .capacity-fill.warning { background: linear-gradient(90deg, #ff9800, #ffb74d); }
+    .capacity-fill.critical { background: linear-gradient(90deg, #f44336, #ef5350); }
+    
+    /* Batches List */
+    .batches-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    
+    .batch-card {
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 15px;
+        transition: box-shadow 0.2s ease;
+    }
+    
+    .batch-card:hover {
+        box-shadow: var(--shadow);
+    }
+    
+    .batch-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    
+    .batch-id {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .batch-details {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .batch-details span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .batch-orders {
+        color: var(--primary);
+        font-size: 0.8rem;
+        margin-bottom: 12px;
+    }
+    
+    .batch-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .batch-btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 6px 14px;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s ease;
+    }
+    
+    .batch-btn:hover {
+        background: var(--primary-light);
+        color: var(--primary);
+        border-color: var(--primary);
+    }
+    
+    .batch-btn.reserve:hover { background: #e3f2fd; color: #1976d2; border-color: #1976d2; }
+    .batch-btn.transfer:hover { background: #e8f5e9; color: #388e3c; border-color: #388e3c; }
+    .batch-btn.adjust:hover { background: #fff3e0; color: #f57c00; border-color: #f57c00; }
+    .batch-btn.delete:hover { background: #ffebee; color: #f44336; border-color: #f44336; }
+    
+    /* Scrollbar Styling */
+    .batches-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .batches-list::-webkit-scrollbar-track {
+        background: var(--bg-main);
+        border-radius: 10px;
+    }
+    
+    .batches-list::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 10px;
+    }
+    
+    .batches-list::-webkit-scrollbar-thumb:hover {
+        background: var(--text-light);
+    }
+    
+    /* Modal Styles */
+    .inventory-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .inventory-modal.active {
+        display: flex;
+    }
+    
+    .modal-card {
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: 30px;
+        width: 90%;
+        max-width: 450px;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+    }
+    
+    .modal-title {
+        color: var(--text-primary);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .modal-title i {
+        color: var(--primary);
+        margin-right: 8px;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    
+    .modal-close:hover {
+        color: var(--danger);
+    }
+    
+    .modal-form .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .modal-form label {
+        display: block;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+    
+    .modal-form input,
+    .modal-form select {
+        width: 100%;
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 12px 15px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+    
+    .modal-form input:focus,
+    .modal-form select:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    
+    .modal-form input::placeholder {
+        color: var(--text-light);
+    }
+    
+    .modal-form select option {
+        background: var(--bg-card);
+        color: var(--text-primary);
+    }
+    
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 25px;
+    }
+    
+    .modal-btn {
+        flex: 1;
+        padding: 12px 20px;
+        border-radius: var(--radius);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .modal-btn.primary {
+        background: var(--primary);
+        border: none;
+        color: #fff;
+    }
+    
+    .modal-btn.primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+    }
+    
+    .modal-btn.secondary {
+        background: transparent;
+        border: 2px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+    
+    .modal-btn.secondary:hover {
+        background: var(--bg-main);
+        border-color: var(--text-secondary);
+    }
+    
+    /* Empty State */
+    .empty-batch {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-secondary);
+    }
+    
+    .empty-batch i {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    /* Modal Info Text */
+    .modal-info-text {
+        color: var(--text-secondary);
+        margin-bottom: 20px;
+    }
+    
+    .modal-info-text strong {
+        color: var(--text-primary);
+    }
+    
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .stages-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .inventory-stats-bar {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .inventory-stats-bar {
+            grid-template-columns: 1fr;
+        }
+        
+        .inventory-controls {
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            width: 100%;
+        }
+        
+        .inventory-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: stretch;
+        }
+    }
+</style>
+
+<!-- Top Stats Bar -->
+<div class="inventory-stats-bar">
+        <div class="inventory-stat-card">
+            <div class="inventory-stat-content">
+                <h3>Workforce On-Shift</h3>
+                <div class="value">{{ workforce_on_shift }}</div>
+            </div>
+            <div class="inventory-stat-icon workforce">
+                <i class="fas fa-users"></i>
+            </div>
         </div>
-        <div class="card-body">
-            {% if products %}
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Stock</th>
-                            <th>Unit</th>
-                            <th>Value</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for product in products %}
-                        <tr class="{% if product.stock_quantity < 100 %}low-stock{% endif %}">
-                            <td>{{ product.name }}</td>
-                            <td>{{ product.stock_quantity }}</td>
-                            <td>{{ product.unit }}</td>
-                            <td class="currency">{{ (product.price_per_unit * product.stock_quantity)|format_currency }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="openUpdateModal({{ product.id }}, '{{ product.name }}')">
-                                    Update
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        
+        <div class="inventory-stat-card">
+            <div class="inventory-stat-content">
+                <h3>Open Orders</h3>
+                <div class="value">{{ open_orders }}</div>
             </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="fas fa-warehouse"></i>
-                <p>No products in inventory</p>
+            <div class="inventory-stat-icon orders">
+                <i class="fas fa-file-alt"></i>
             </div>
-            {% endif %}
+        </div>
+        
+        <div class="inventory-stat-card">
+            <div class="inventory-stat-content">
+                <h3>Total Inventory</h3>
+                <div class="value">{{ "{:,}".format(total_inventory) }} units</div>
+            </div>
+            <div class="inventory-stat-icon inventory">
+                <i class="fas fa-cubes"></i>
+            </div>
+        </div>
+        
+        <div class="inventory-stat-card">
+            <div class="inventory-stat-content">
+                <h3>Today's Productivity</h3>
+                <div class="value">{{ productivity }}%</div>
+            </div>
+            <div class="inventory-stat-icon productivity">
+                <i class="fas fa-chart-line"></i>
+            </div>
         </div>
     </div>
     
-    <!-- Recent Activity -->
-    <div class="card">
-        <div class="card-header">
-            <h2><i class="fas fa-history"></i> Recent Activity</h2>
+    <!-- Inventory Management Header -->
+    <div class="inventory-header">
+        <div class="inventory-title">
+            <i class="fas fa-layer-group"></i>
+            <span>Production Stages</span>
         </div>
-        <div class="card-body">
-            {% if logs %}
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Product</th>
-                            <th>Type</th>
-                            <th>Qty</th>
-                            <th>Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for log in logs %}
-                        <tr>
-                            <td>{{ log.timestamp|format_date }}</td>
-                            <td>{{ log.product_name }}</td>
-                            <td>
-                                <span class="badge badge-{% if log.change_type == 'Addition' %}success{% else %}danger{% endif %}">
-                                    {{ log.change_type }}
-                                </span>
-                            </td>
-                            <td>{% if log.change_type == 'Addition' %}+{% else %}-{% endif %}{{ log.quantity }}</td>
-                            <td>{{ log.reason or '-' }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="fas fa-history"></i>
-                <p>No recent activity</p>
-            </div>
-            {% endif %}
+        
+        <div class="inventory-controls">
+            <input type="text" class="search-box" placeholder="Search by SKU or batch..." id="searchBox">
+            
+            <button class="add-stock-btn" onclick="openAddStockModal()">
+                <i class="fas fa-plus"></i>
+                <span>Add Stock</span>
+            </button>
         </div>
+    </div>
+    
+    <!-- Stages Grid -->
+    <div class="stages-grid">
+        {% for stage in stages %}
+        <div class="stage-card" data-stage="{{ stage.stage_number }}">
+            <div class="stage-header">
+                <div class="stage-info">
+                    <div class="stage-icon {% if stage.stage_number == 1 %}forming{% elif stage.stage_number == 2 %}drying{% else %}finishing{% endif %}">
+                        <i class="fas fa-{% if stage.stage_number == 1 %}tools{% elif stage.stage_number == 2 %}sun{% else %}check-circle{% endif %}"></i>
+                    </div>
+                    <div>
+                        <div class="stage-name">
+                            Stage {{ stage.stage_number }} - {{ stage.stage_name }}
+                            <span class="status-badge {{ stage.status }}">{{ stage.status }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stage-stats">
+                    <div class="stage-quantity">{{ "{:,}".format(stage.current_quantity) }}</div>
+                    <div class="stage-updated">Updated {{ "just now" if stage.batches else "recently" }}</div>
+                </div>
+            </div>
+            
+            <!-- Capacity Bar -->
+            <div class="capacity-section">
+                <div class="capacity-label">
+                    <span>Capacity</span>
+                    <span>{{ "{:,}".format(stage.current_quantity) }} / {{ "{:,}".format(stage.capacity) }}</span>
+                </div>
+                <div class="capacity-bar">
+                    <div class="capacity-fill {{ stage.status }}" style="width: {{ stage.utilization|round|int }}%"></div>
+                </div>
+            </div>
+            
+            <!-- Batches List -->
+            <div class="batches-list">
+                {% if stage.batches %}
+                    {% for batch in stage.batches %}
+                    <div class="batch-card" data-batch-id="{{ batch.id }}" data-sku="{{ batch.sku }}">
+                        <div class="batch-header">
+                            <span class="batch-id">Batch {{ batch.batch_id }}</span>
+                        </div>
+                        <div class="batch-details">
+                            <span><i class="fas fa-cube"></i> {{ "{:,}".format(batch.units) }} units</span>
+                            <span><i class="fas fa-clock"></i> {{ batch.age_days }}d old</span>
+                            <span><i class="fas fa-tag"></i> SKU: {{ batch.sku }}</span>
+                        </div>
+                        {% if batch.orders %}
+                        <div class="batch-orders">
+                            <i class="fas fa-link"></i> Orders: {{ batch.orders|join(', ') }}
+                        </div>
+                        {% endif %}
+                        <div class="batch-actions">
+                            <button class="batch-btn reserve" onclick="openReserveModal({{ batch.id }}, '{{ batch.batch_id }}')">
+                                <i class="fas fa-bookmark"></i> Reserve
+                            </button>
+                            <button class="batch-btn transfer" onclick="openTransferModal({{ batch.id }}, '{{ batch.batch_id }}', {{ stage.stage_number }})">
+                                <i class="fas fa-arrow-right"></i> Transfer
+                            </button>
+                            <button class="batch-btn adjust" onclick="openAdjustModal({{ batch.id }}, '{{ batch.batch_id }}', {{ batch.units }})">
+                                <i class="fas fa-sliders-h"></i> Adjust
+                            </button>
+                            <a href="{{ url_for('delete_batch', id=batch.id) }}" class="batch-btn delete" onclick="return confirm('Are you sure you want to delete batch {{ batch.batch_id }}?')">
+                                <i class="fas fa-trash"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-batch">
+                        <i class="fas fa-inbox"></i>
+                        <p>No batches in this stage</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+<!-- Add Stock Modal -->
+<div class="inventory-modal" id="addStockModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-plus-circle"></i> Add New Stock</span>
+            <button class="modal-close" onclick="closeModal('addStockModal')">&times;</button>
+        </div>
+        <form class="modal-form" method="POST" action="{{ url_for('add_batch') }}">
+            <div class="form-group">
+                <label>Stage</label>
+                <select name="stage_id" required>
+                    {% for stage in stages %}
+                    <option value="{{ stage.id }}">Stage {{ stage.stage_number }} - {{ stage.stage_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>SKU</label>
+                <input type="text" name="sku" value="BRICK-STD" placeholder="e.g., BRICK-STD" required>
+            </div>
+            <div class="form-group">
+                <label>Units</label>
+                <input type="number" name="units" min="1" placeholder="Enter quantity" required>
+            </div>
+            <div class="form-group">
+                <label>Link to Orders (comma-separated)</label>
+                <input type="text" name="orders" placeholder="e.g., ORD-123, ORD-124">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" onclick="closeModal('addStockModal')">Cancel</button>
+                <button type="submit" class="modal-btn primary">Add Stock</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Update Inventory Modal (inline form) -->
-<div id="update-modal" class="card mt-2" style="display: none; max-width: 500px;">
-    <div class="card-header">
-        <h2><i class="fas fa-edit"></i> Update Inventory</h2>
-        <button onclick="closeUpdateModal()" class="btn btn-sm btn-secondary">&times;</button>
-    </div>
-    <div class="card-body">
-        <form id="update-form" method="POST" action="">
-            <p id="product-name" style="font-weight: bold; margin-bottom: 15px;"></p>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="change_type">Type</label>
-                    <select id="change_type" name="change_type" class="form-control" required>
-                        <option value="Addition">Addition (Restock)</option>
-                        <option value="Deduction">Deduction (Usage/Sale)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="quantity">Quantity</label>
-                    <input type="number" id="modal-quantity" name="quantity" class="form-control" min="1" required>
-                </div>
-            </div>
-            
+<!-- Reserve Modal -->
+<div class="inventory-modal" id="reserveModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-bookmark"></i> Reserve Batch</span>
+            <button class="modal-close" onclick="closeModal('reserveModal')">&times;</button>
+        </div>
+        <form class="modal-form" method="POST" action="{{ url_for('reserve_batch') }}">
+            <input type="hidden" name="batch_id" id="reserveBatchId">
+            <p class="modal-info-text">
+                Reserving batch <strong id="reserveBatchName"></strong>
+            </p>
             <div class="form-group">
-                <label for="reason">Reason</label>
-                <input type="text" id="reason" name="reason" class="form-control" placeholder="e.g., New stock arrival, Production use">
+                <label>Order Number</label>
+                <input type="text" name="order_number" placeholder="e.g., ORD-127" required>
             </div>
-            
-            <div class="d-flex gap-1">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Update Stock
-                </button>
-                <button type="button" onclick="closeUpdateModal()" class="btn btn-secondary">Cancel</button>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" onclick="closeModal('reserveModal')">Cancel</button>
+                <button type="submit" class="modal-btn primary">Reserve</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="inventory-modal" id="transferModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-exchange-alt"></i> Transfer Batch</span>
+            <button class="modal-close" onclick="closeModal('transferModal')">&times;</button>
+        </div>
+        <form class="modal-form" method="POST" action="{{ url_for('transfer_batch') }}">
+            <input type="hidden" name="batch_id" id="transferBatchId">
+            <p class="modal-info-text">
+                Transferring batch <strong id="transferBatchName"></strong>
+            </p>
+            <div class="form-group">
+                <label>Transfer to Stage</label>
+                <select name="target_stage_id" id="transferTargetStage" required>
+                    {% for stage in stages %}
+                    <option value="{{ stage.id }}">Stage {{ stage.stage_number }} - {{ stage.stage_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" onclick="closeModal('transferModal')">Cancel</button>
+                <button type="submit" class="modal-btn primary">Transfer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Adjust Modal -->
+<div class="inventory-modal" id="adjustModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-sliders-h"></i> Adjust Quantity</span>
+            <button class="modal-close" onclick="closeModal('adjustModal')">&times;</button>
+        </div>
+        <form class="modal-form" method="POST" action="{{ url_for('adjust_batch') }}">
+            <input type="hidden" name="batch_id" id="adjustBatchId">
+            <p class="modal-info-text">
+                Adjusting batch <strong id="adjustBatchName"></strong>
+            </p>
+            <div class="form-group">
+                <label>New Quantity (Units)</label>
+                <input type="number" name="units" id="adjustUnits" min="0" required>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" name="reason" placeholder="e.g., Quality check adjustment">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" onclick="closeModal('adjustModal')">Cancel</button>
+                <button type="submit" class="modal-btn primary">Adjust</button>
             </div>
         </form>
     </div>
@@ -137,16 +806,73 @@
 
 {% block scripts %}
 <script>
-    function openUpdateModal(productId, productName) {
-        document.getElementById('update-modal').style.display = 'block';
-        document.getElementById('product-name').textContent = 'Product: ' + productName;
-        document.getElementById('update-form').action = '/inventory/update/' + productId;
-        document.getElementById('modal-quantity').value = '';
-        document.getElementById('reason').value = '';
+    // Modal Functions
+    function openAddStockModal() {
+        document.getElementById('addStockModal').classList.add('active');
     }
     
-    function closeUpdateModal() {
-        document.getElementById('update-modal').style.display = 'none';
+    function openReserveModal(batchId, batchName) {
+        document.getElementById('reserveBatchId').value = batchId;
+        document.getElementById('reserveBatchName').textContent = batchName;
+        document.getElementById('reserveModal').classList.add('active');
     }
+    
+    function openTransferModal(batchId, batchName, currentStage) {
+        document.getElementById('transferBatchId').value = batchId;
+        document.getElementById('transferBatchName').textContent = batchName;
+        // Pre-select next stage
+        const select = document.getElementById('transferTargetStage');
+        const nextStage = Math.min(currentStage + 1, 3);
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].text.includes('Stage ' + nextStage)) {
+                select.selectedIndex = i;
+                break;
+            }
+        }
+        document.getElementById('transferModal').classList.add('active');
+    }
+    
+    function openAdjustModal(batchId, batchName, currentUnits) {
+        document.getElementById('adjustBatchId').value = batchId;
+        document.getElementById('adjustBatchName').textContent = batchName;
+        document.getElementById('adjustUnits').value = currentUnits;
+        document.getElementById('adjustModal').classList.add('active');
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+    
+    // Close modal when clicking outside
+    document.querySelectorAll('.inventory-modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+            }
+        });
+    });
+    
+    // Search functionality
+    document.getElementById('searchBox').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('.batch-card').forEach(card => {
+            const sku = card.dataset.sku.toLowerCase();
+            const batchId = card.querySelector('.batch-id').textContent.toLowerCase();
+            if (sku.includes(query) || batchId.includes(query)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+    
+    // Escape key to close modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.inventory-modal.active').forEach(modal => {
+                modal.classList.remove('active');
+            });
+        }
+    });
 </script>
 {% endblock %}

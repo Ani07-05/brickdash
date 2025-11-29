@@ -242,6 +242,77 @@ def init_db():
         )
     ''')
     
+    # Inventory stages table - Stage 1: Forming, Stage 2: Drying, Stage 3: Finishing
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_stages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stage_number INTEGER NOT NULL,
+            stage_name TEXT NOT NULL,
+            capacity INTEGER DEFAULT 1000,
+            current_quantity INTEGER DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(stage_number)
+        )
+    ''')
+    
+    # Inventory batches table - Individual batches in each stage
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT UNIQUE NOT NULL,
+            stage_id INTEGER NOT NULL,
+            sku TEXT NOT NULL,
+            units INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            reserved_for TEXT,
+            notes TEXT,
+            FOREIGN KEY (stage_id) REFERENCES inventory_stages (id)
+        )
+    ''')
+    
+    # Batch order links - Links batches to orders
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS batch_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            order_number TEXT NOT NULL,
+            FOREIGN KEY (batch_id) REFERENCES inventory_batches (id)
+        )
+    ''')
+    
+    # Initialize default stages if not exist
+    cursor.execute('SELECT COUNT(*) FROM inventory_stages')
+    if cursor.fetchone()[0] == 0:
+        stages = [
+            (1, 'Forming', 2000),
+            (2, 'Drying', 1500),
+            (3, 'Finishing', 1000),
+        ]
+        cursor.executemany('''
+            INSERT INTO inventory_stages (stage_number, stage_name, capacity)
+            VALUES (?, ?, ?)
+        ''', stages)
+        
+        # Add sample batches
+        batches = [
+            ('B001', 1, 'BRICK-STD', 500, 'ORD-123'),
+            ('B002', 1, 'BRICK-STD', 750, None),
+            ('B003', 2, 'BRICK-STD', 400, 'ORD-124,ORD-125'),
+            ('B004', 3, 'BRICK-STD', 300, 'ORD-126'),
+        ]
+        for batch in batches:
+            cursor.execute('''
+                INSERT INTO inventory_batches (batch_id, stage_id, sku, units, created_at)
+                VALUES (?, ?, ?, ?, datetime('now', ?))
+            ''', (batch[0], batch[1], batch[2], batch[3], f'-{["2", "1", "5", "8"][batches.index(batch)]} days'))
+            
+            # Link orders if any
+            if batch[4]:
+                batch_row = cursor.execute('SELECT id FROM inventory_batches WHERE batch_id = ?', (batch[0],)).fetchone()
+                for order in batch[4].split(','):
+                    cursor.execute('INSERT INTO batch_orders (batch_id, order_number) VALUES (?, ?)', 
+                                 (batch_row[0], order.strip()))
+    
     # Users table for authentication
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -781,13 +852,204 @@ def delete_order(id):
 @app.route('/inventory')
 def inventory():
     db = get_db()
+    
+    # Get all stages with their batches
+    stages = db.execute('''
+        SELECT * FROM inventory_stages ORDER BY stage_number
+    ''').fetchall()
+    
+    # Calculate current quantity for each stage and get batches
+    stages_data = []
+    total_inventory = 0
+    
+    for stage in stages:
+        batches = db.execute('''
+            SELECT b.*, 
+                   CAST((julianday('now') - julianday(b.created_at)) AS INTEGER) as age_days
+            FROM inventory_batches b
+            WHERE b.stage_id = ?
+            ORDER BY b.created_at DESC
+        ''', (stage['id'],)).fetchall()
+        
+        # Get orders for each batch
+        batches_with_orders = []
+        stage_quantity = 0
+        for batch in batches:
+            orders = db.execute('''
+                SELECT order_number FROM batch_orders WHERE batch_id = ?
+            ''', (batch['id'],)).fetchall()
+            batch_dict = dict(batch)
+            batch_dict['orders'] = [o['order_number'] for o in orders]
+            batches_with_orders.append(batch_dict)
+            stage_quantity += batch['units']
+        
+        # Update stage current quantity
+        db.execute('UPDATE inventory_stages SET current_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                  (stage_quantity, stage['id']))
+        
+        stage_dict = dict(stage)
+        stage_dict['current_quantity'] = stage_quantity
+        stage_dict['batches'] = batches_with_orders
+        stage_dict['utilization'] = (stage_quantity / stage['capacity'] * 100) if stage['capacity'] > 0 else 0
+        
+        # Determine status
+        if stage_dict['utilization'] >= 80:
+            stage_dict['status'] = 'critical'
+        elif stage_dict['utilization'] >= 50:
+            stage_dict['status'] = 'warning'
+        else:
+            stage_dict['status'] = 'healthy'
+        
+        stages_data.append(stage_dict)
+        total_inventory += stage_quantity
+    
+    db.commit()
+    
+    # Get dashboard stats
+    today = date.today().strftime('%Y-%m-%d')
+    workforce_on_shift = db.execute('''
+        SELECT COUNT(*) FROM attendance WHERE date = ? AND status = 'Present'
+    ''', (today,)).fetchone()[0]
+    
+    open_orders = db.execute("SELECT COUNT(*) FROM orders WHERE status IN ('Pending', 'Processing')").fetchone()[0]
+    
+    # Calculate today's productivity (completed tasks / total tasks assigned today)
+    total_tasks_today = db.execute('''
+        SELECT COUNT(*) FROM tasks WHERE DATE(created_at) = ?
+    ''', (today,)).fetchone()[0]
+    completed_tasks_today = db.execute('''
+        SELECT COUNT(*) FROM tasks WHERE DATE(created_at) = ? AND status = 'Completed'
+    ''', (today,)).fetchone()[0]
+    productivity = int((completed_tasks_today / total_tasks_today * 100) if total_tasks_today > 0 else 87)
+    
+    # Products for legacy support
     products_list = db.execute('SELECT * FROM products').fetchall()
     logs = db.execute('''
         SELECT l.*, p.name as product_name FROM inventory_logs l
         JOIN products p ON l.product_id = p.id
         ORDER BY l.timestamp DESC LIMIT 20
     ''').fetchall()
-    return render_template('inventory.html', products=products_list, logs=logs)
+    
+    # Get SKUs for dropdown
+    skus = db.execute('SELECT DISTINCT sku FROM inventory_batches').fetchall()
+    
+    return render_template('inventory.html', 
+                         stages=stages_data,
+                         total_inventory=total_inventory,
+                         workforce_on_shift=workforce_on_shift,
+                         open_orders=open_orders,
+                         productivity=productivity,
+                         products=products_list,
+                         logs=logs,
+                         skus=skus)
+
+
+@app.route('/inventory/add-batch', methods=['POST'])
+def add_batch():
+    db = get_db()
+    
+    stage_id = int(request.form.get('stage_id'))
+    sku = request.form.get('sku', 'BRICK-STD')
+    units = int(request.form.get('units', 0))
+    orders = request.form.get('orders', '').strip()
+    
+    # Generate batch ID
+    last_batch = db.execute("SELECT batch_id FROM inventory_batches WHERE batch_id LIKE 'B%' ORDER BY id DESC LIMIT 1").fetchone()
+    if last_batch:
+        try:
+            num = int(last_batch['batch_id'].replace('B', ''))
+            new_batch_id = f"B{num + 1:03d}"
+        except:
+            new_batch_id = "B001"
+    else:
+        new_batch_id = "B001"
+    
+    # Insert batch
+    db.execute('''
+        INSERT INTO inventory_batches (batch_id, stage_id, sku, units)
+        VALUES (?, ?, ?, ?)
+    ''', (new_batch_id, stage_id, sku, units))
+    
+    # Link orders if provided
+    if orders:
+        batch_row = db.execute('SELECT id FROM inventory_batches WHERE batch_id = ?', (new_batch_id,)).fetchone()
+        for order in orders.split(','):
+            order = order.strip()
+            if order:
+                db.execute('INSERT INTO batch_orders (batch_id, order_number) VALUES (?, ?)', 
+                          (batch_row['id'], order))
+    
+    db.commit()
+    flash(f'Batch {new_batch_id} added successfully!', 'success')
+    return redirect(url_for('inventory'))
+
+
+@app.route('/inventory/transfer-batch', methods=['POST'])
+def transfer_batch():
+    db = get_db()
+    
+    batch_id = int(request.form.get('batch_id'))
+    target_stage_id = int(request.form.get('target_stage_id'))
+    
+    batch = db.execute('SELECT * FROM inventory_batches WHERE id = ?', (batch_id,)).fetchone()
+    if batch:
+        db.execute('UPDATE inventory_batches SET stage_id = ? WHERE id = ?', (target_stage_id, batch_id))
+        db.commit()
+        flash(f'Batch {batch["batch_id"]} transferred successfully!', 'success')
+    else:
+        flash('Batch not found!', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+
+@app.route('/inventory/adjust-batch', methods=['POST'])
+def adjust_batch():
+    db = get_db()
+    
+    batch_id = int(request.form.get('batch_id'))
+    new_units = int(request.form.get('units', 0))
+    reason = request.form.get('reason', '')
+    
+    batch = db.execute('SELECT * FROM inventory_batches WHERE id = ?', (batch_id,)).fetchone()
+    if batch:
+        db.execute('UPDATE inventory_batches SET units = ? WHERE id = ?', (new_units, batch_id))
+        db.commit()
+        flash(f'Batch {batch["batch_id"]} adjusted to {new_units} units!', 'success')
+    else:
+        flash('Batch not found!', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+
+@app.route('/inventory/reserve-batch', methods=['POST'])
+def reserve_batch():
+    db = get_db()
+    
+    batch_id = int(request.form.get('batch_id'))
+    order_number = request.form.get('order_number', '').strip()
+    
+    batch = db.execute('SELECT * FROM inventory_batches WHERE id = ?', (batch_id,)).fetchone()
+    if batch and order_number:
+        # Add order link
+        db.execute('INSERT INTO batch_orders (batch_id, order_number) VALUES (?, ?)', (batch_id, order_number))
+        db.commit()
+        flash(f'Batch {batch["batch_id"]} reserved for {order_number}!', 'success')
+    else:
+        flash('Invalid batch or order number!', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+
+@app.route('/inventory/delete-batch/<int:id>')
+def delete_batch(id):
+    db = get_db()
+    batch = db.execute('SELECT * FROM inventory_batches WHERE id = ?', (id,)).fetchone()
+    if batch:
+        db.execute('DELETE FROM batch_orders WHERE batch_id = ?', (id,))
+        db.execute('DELETE FROM inventory_batches WHERE id = ?', (id,))
+        db.commit()
+        flash(f'Batch {batch["batch_id"]} deleted!', 'success')
+    return redirect(url_for('inventory'))
 
 @app.route('/inventory/update/<int:id>', methods=['POST'])
 def update_inventory(id):
