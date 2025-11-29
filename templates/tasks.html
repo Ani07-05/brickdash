@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 
-{% block title %}Task Allocation{% endblock %}
-{% block header %}TASK ALLOCATION{% endblock %}
+{% block title %}{% if session.get('user_role') == 'Employee' %}My Tasks{% else %}Task Allocation{% endif %}{% endblock %}
+{% block header %}{% if session.get('user_role') == 'Employee' %}MY TASKS{% else %}TASK ALLOCATION{% endif %}{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2><i class="fas fa-tasks"></i> Task Allocation</h2>
+        <h2><i class="fas fa-tasks"></i> {% if session.get('user_role') == 'Employee' %}My Tasks{% else %}Task Allocation{% endif %}</h2>
+        {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
         <div class="header-actions">
             <a href="{{ url_for('task_rotation') }}" class="btn btn-info">
                 <i class="fas fa-sync-alt"></i> Rotation Matrix
@@ -15,6 +16,7 @@
                 <i class="fas fa-plus"></i> Create Task
             </a>
         </div>
+        {% endif %}
     </div>
     <div class="card-body">
         <!-- Search Bar -->
@@ -82,8 +84,12 @@
                         <td>{{ task.due_date|format_date if task.due_date else '-' }}</td>
                         <td>
                             <div class="btn-group">
+                                {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
                                 <a href="{{ url_for('edit_task', id=task.id) }}" class="action-btn edit">Edit</a>
                                 <a href="{{ url_for('delete_task', id=task.id) }}" class="action-btn delete" onclick="return confirm('Delete this task?')">Delete</a>
+                                {% else %}
+                                <span class="action-btn view" style="cursor: default;">View</span>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -95,7 +101,9 @@
         <div class="empty-state">
             <i class="fas fa-tasks"></i>
             <p>No tasks found</p>
+            {% if session.get('user_role') in ['Manager', 'Supervisor'] %}
             <a href="{{ url_for('add_task') }}" class="btn btn-primary mt-2">Create First Task</a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

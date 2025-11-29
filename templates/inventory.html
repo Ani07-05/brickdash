@@ -586,9 +586,9 @@
 
 <!-- Top Stats Bar -->
 <div class="inventory-stats-bar">
-        <div class="inventory-stat-card">
+        <div class="inventory-stat-card" {% if session.get('user_role') in ['Manager', 'Supervisor'] %}style="cursor: pointer;" onclick="openEditStatsModal('workforce')"{% endif %}>
             <div class="inventory-stat-content">
-                <h3>Workforce On-Shift</h3>
+                <h3>Workforce On-Shift {% if session.get('user_role') in ['Manager', 'Supervisor'] %}<i class="fas fa-edit" style="font-size: 0.7rem; margin-left: 5px; opacity: 0.6;"></i>{% endif %}</h3>
                 <div class="value">{{ workforce_on_shift }}</div>
             </div>
             <div class="inventory-stat-icon workforce">
@@ -606,9 +606,9 @@
             </div>
         </div>
         
-        <div class="inventory-stat-card">
+        <div class="inventory-stat-card" {% if session.get('user_role') in ['Manager', 'Supervisor'] %}style="cursor: pointer;" onclick="openEditStatsModal('capacity')"{% endif %}>
             <div class="inventory-stat-content">
-                <h3>Total Inventory</h3>
+                <h3>Total Inventory {% if session.get('user_role') in ['Manager', 'Supervisor'] %}<i class="fas fa-edit" style="font-size: 0.7rem; margin-left: 5px; opacity: 0.6;"></i>{% endif %}</h3>
                 <div class="value">{{ "{:,}".format(total_inventory) }} units</div>
             </div>
             <div class="inventory-stat-icon inventory">
@@ -631,7 +631,7 @@
     <div class="inventory-header">
         <div class="inventory-title">
             <i class="fas fa-layer-group"></i>
-            <span>Production Stages</span>
+            <span>Stages</span>
         </div>
         
         <div class="inventory-controls">
@@ -849,6 +849,36 @@
         </form>
     </div>
 </div>
+
+<!-- Edit Inventory Stats Modal -->
+<div class="inventory-modal" id="editStatsModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-cog"></i> Edit Inventory Stats</span>
+            <button class="modal-close" onclick="closeModal('editStatsModal')">&times;</button>
+        </div>
+        <form class="modal-form" method="POST" action="{{ url_for('update_inventory_stats') }}">
+            <input type="hidden" name="stat_type" id="editStatType">
+            <div class="form-group" id="workforceGroup">
+                <label>Workforce On-Shift</label>
+                <input type="number" name="workforce_on_shift" id="editWorkforce" min="0" value="{{ workforce_on_shift }}">
+            </div>
+            <div class="form-group" id="capacityGroup">
+                <label>Stage Capacities</label>
+                {% for stage in stages %}
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <span style="flex: 1; color: var(--text-secondary); font-size: 0.9rem;">{{ stage.stage_name }}</span>
+                    <input type="number" name="capacity_{{ stage.id }}" min="0" value="{{ stage.capacity }}" style="width: 120px;">
+                </div>
+                {% endfor %}
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" onclick="closeModal('editStatsModal')">Cancel</button>
+                <button type="submit" class="modal-btn primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -884,6 +914,19 @@
         document.getElementById('adjustBatchName').textContent = batchName;
         document.getElementById('adjustUnits').value = currentUnits;
         document.getElementById('adjustModal').classList.add('active');
+    }
+    
+    function openEditStatsModal(statType) {
+        document.getElementById('editStatType').value = statType;
+        // Show/hide relevant fields
+        if (statType === 'workforce') {
+            document.getElementById('workforceGroup').style.display = 'block';
+            document.getElementById('capacityGroup').style.display = 'none';
+        } else {
+            document.getElementById('workforceGroup').style.display = 'none';
+            document.getElementById('capacityGroup').style.display = 'block';
+        }
+        document.getElementById('editStatsModal').classList.add('active');
     }
     
     function closeModal(modalId) {

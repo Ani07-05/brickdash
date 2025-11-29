@@ -33,9 +33,11 @@
 <div class="card">
     <div class="card-header">
         <h2>Complete list of employees</h2>
+        {% if session.get('user_role') == 'Manager' %}
         <a href="{{ url_for('add_employee') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Add employee
         </a>
+        {% endif %}
     </div>
     <div class="card-body">
         <!-- Search Bar -->
@@ -99,12 +101,14 @@
                                 <a href="{{ url_for('view_employee', id=employee.id) }}" class="action-btn view" title="View">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                {% if session.get('user_role') == 'Manager' %}
                                 <a href="{{ url_for('edit_employee', id=employee.id) }}" class="action-btn edit" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 <button class="action-btn delete" style="border: none; cursor: pointer;" title="More" onclick="alert('More options coming soon')">
                                     <i class="fas fa-ellipsis-h"></i>
                                 </button>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -116,7 +120,9 @@
         <div class="empty-state">
             <i class="fas fa-id-card"></i>
             <p>No employees found</p>
+            {% if session.get('user_role') == 'Manager' %}
             <a href="{{ url_for('add_employee') }}" class="btn btn-primary mt-2">Add First Employee</a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

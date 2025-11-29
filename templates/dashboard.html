@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}Dashboard{% endblock %}
-{% block header %}MANAGER DASHBOARD{% endblock %}
+{% block header %}{% if session.get('user_role') == 'Manager' %}MANAGER DASHBOARD{% elif session.get('user_role') == 'Supervisor' %}SUPERVISOR DASHBOARD{% else %}DASHBOARD{% endif %}{% endblock %}
 
 {% block content %}
 <!-- Stats Cards -->
@@ -57,7 +57,7 @@
     <!-- Production Stats Graph -->
     <div class="card chart-card">
         <div class="card-header">
-            <h2><i class="fas fa-chart-line"></i> Order Trends (Last 6 Months)</h2>
+            <h2><i class="fas fa-chart-line"></i> Order Trends (Last 30 Days)</h2>
         </div>
         <div class="card-body">
             <div class="chart-container">
@@ -66,6 +66,34 @@
         </div>
     </div>
 </div>
+
+<!-- Inventory Alerts Section -->
+{% if session.get('user_role') in ['Manager', 'Supervisor'] and inventory_alerts %}
+<div class="card mt-2">
+    <div class="card-header">
+        <h2><i class="fas fa-exclamation-circle text-danger"></i> Inventory Alerts</h2>
+        <a href="{{ url_for('inventory') }}" class="btn btn-sm btn-outline">View Inventory</a>
+    </div>
+    <div class="card-body">
+        <div class="alert-list">
+            {% for alert in inventory_alerts %}
+            <div class="alert-item {% if alert.status == 'critical' %}alert-danger{% elif alert.status == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+                <div class="alert-icon">
+                    <i class="fas fa-{% if alert.status == 'critical' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                </div>
+                <div class="alert-content">
+                    <strong>{{ alert.stage_name }}</strong>
+                    <span>{{ alert.current_quantity|int }}/{{ alert.capacity|int }} units ({{ alert.utilization|int }}% full)</span>
+                </div>
+                <span class="badge badge-{% if alert.status == 'critical' %}danger{% else %}warning{% endif %}">
+                    {{ alert.status|upper }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Notification Widgets -->
 <div class="stats-grid mt-2">

@@ -281,6 +281,45 @@ def init_db():
         )
     ''')
     
+    # Inventory settings table - For storing configurable settings like workforce on shift
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            setting_key TEXT UNIQUE NOT NULL,
+            setting_value TEXT NOT NULL
+        )
+    ''')
+    
+    # Initialize default settings if not exist
+    cursor.execute("SELECT COUNT(*) FROM inventory_settings WHERE setting_key = 'workforce_on_shift'")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO inventory_settings (setting_key, setting_value) VALUES ('workforce_on_shift', '24')")
+    
+    # Task types table - For configurable task types
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS task_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1
+        )
+    ''')
+    
+    # Initialize default task types if not exist
+    cursor.execute('SELECT COUNT(*) FROM task_types')
+    if cursor.fetchone()[0] == 0:
+        default_types = [
+            ('Loading', 1, 1),
+            ('Delivery', 2, 1),
+            ('Quality Check', 3, 1),
+            ('Packaging', 4, 1),
+            ('Maintenance', 5, 1),
+            ('General', 6, 1),
+        ]
+        cursor.executemany('''
+            INSERT INTO task_types (name, sort_order, is_active) VALUES (?, ?, ?)
+        ''', default_types)
+    
     # Initialize default stages if not exist (8 brick production stages)
     cursor.execute('SELECT COUNT(*) FROM inventory_stages')
     if cursor.fetchone()[0] == 0:
@@ -639,6 +678,31 @@ def dashboard():
     
     inventory_value = db.execute('SELECT SUM(price_per_unit * stock_quantity) FROM products').fetchone()[0] or 0
     
+    # Get inventory alerts (stages with high utilization)
+    inventory_alerts = []
+    if session.get('user_role') in ['Manager', 'Supervisor']:
+        stages = db.execute('SELECT * FROM inventory_stages ORDER BY stage_number').fetchall()
+        for stage in stages:
+            current_qty = db.execute('SELECT COALESCE(SUM(units), 0) FROM inventory_batches WHERE stage_id = ?', 
+                                    (stage['id'],)).fetchone()[0]
+            utilization = (current_qty / stage['capacity'] * 100) if stage['capacity'] > 0 else 0
+            
+            if utilization >= 80:
+                status = 'critical'
+            elif utilization >= 50:
+                status = 'warning'
+            else:
+                status = None
+            
+            if status:
+                inventory_alerts.append({
+                    'stage_name': stage['stage_name'],
+                    'current_quantity': current_qty,
+                    'capacity': stage['capacity'],
+                    'utilization': utilization,
+                    'status': status
+                })
+    
     return render_template('dashboard.html', 
                          total_employees=total_employees,
                          total_products=total_products,
@@ -648,7 +712,8 @@ def dashboard():
                          recent_orders=recent_orders,
                          low_stock=low_stock,
                          pending_tasks=pending_tasks,
-                         inventory_value=inventory_value)
+                         inventory_value=inventory_value,
+                         inventory_alerts=inventory_alerts)
 
 
 # ==================== PRODUCTS ====================
@@ -665,6 +730,7 @@ def products():
 
 @app.route('/products/add', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def add_product():
     if request.method == 'POST':
         db = get_db()
@@ -686,6 +752,7 @@ def add_product():
 
 @app.route('/products/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def edit_product(id):
     db = get_db()
     product = db.execute('SELECT * FROM products WHERE id = ?', (id,)).fetchone()
@@ -713,6 +780,7 @@ def edit_product(id):
 
 @app.route('/products/delete/<int:id>')
 @login_required
+@role_required('Manager')
 def delete_product(id):
     db = get_db()
     db.execute('DELETE FROM products WHERE id = ?', (id,))
@@ -725,6 +793,7 @@ def delete_product(id):
 
 @app.route('/orders')
 @login_required
+@role_required('Manager', 'Supervisor')
 def orders():
     db = get_db()
     status_filter = request.args.get('status', '')
@@ -747,6 +816,7 @@ def orders():
 
 @app.route('/orders/add', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def add_order():
     db = get_db()
     products_list = db.execute('SELECT * FROM products').fetchall()
@@ -782,6 +852,7 @@ def add_order():
 
 @app.route('/orders/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def edit_order(id):
     db = get_db()
     order = db.execute('SELECT * FROM orders WHERE id = ?', (id,)).fetchone()
@@ -822,6 +893,7 @@ def edit_order(id):
 
 @app.route('/orders/view/<int:id>')
 @login_required
+@role_required('Manager', 'Supervisor')
 def view_order(id):
     db = get_db()
     order = db.execute('''
@@ -838,6 +910,7 @@ def view_order(id):
 
 @app.route('/orders/delete/<int:id>')
 @login_required
+@role_required('Manager')
 def delete_order(id):
     db = get_db()
     db.execute('DELETE FROM orders WHERE id = ?', (id,))
@@ -913,9 +986,15 @@ def inventory():
     
     # Get dashboard stats
     today = date.today().strftime('%Y-%m-%d')
-    workforce_on_shift = db.execute('''
-        SELECT COUNT(*) FROM attendance WHERE date = ? AND status = 'Present'
-    ''', (today,)).fetchone()[0]
+    
+    # Get workforce on shift from settings, fallback to attendance count
+    workforce_setting = db.execute("SELECT setting_value FROM inventory_settings WHERE setting_key = 'workforce_on_shift'").fetchone()
+    if workforce_setting:
+        workforce_on_shift = int(workforce_setting['setting_value'])
+    else:
+        workforce_on_shift = db.execute('''
+            SELECT COUNT(*) FROM attendance WHERE date = ? AND status = 'Present'
+        ''', (today,)).fetchone()[0]
     
     open_orders = db.execute("SELECT COUNT(*) FROM orders WHERE status IN ('Pending', 'Processing')").fetchone()[0]
     
@@ -1025,6 +1104,39 @@ def adjust_batch():
         flash(f'Batch {batch["batch_id"]} adjusted to {new_units} units!', 'success')
     else:
         flash('Batch not found!', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+
+@app.route('/inventory/update-stats', methods=['POST'])
+@login_required
+@role_required('Manager', 'Supervisor')
+def update_inventory_stats():
+    """Update inventory stats like workforce on shift and stage capacities"""
+    db = get_db()
+    stat_type = request.form.get('stat_type', '')
+    
+    if stat_type == 'workforce':
+        # Update workforce on shift setting
+        workforce = int(request.form.get('workforce_on_shift', 0))
+        # Store in a settings table or use a simple approach
+        existing = db.execute('SELECT * FROM inventory_settings WHERE setting_key = ?', ('workforce_on_shift',)).fetchone()
+        if existing:
+            db.execute('UPDATE inventory_settings SET setting_value = ? WHERE setting_key = ?', (workforce, 'workforce_on_shift'))
+        else:
+            db.execute('INSERT INTO inventory_settings (setting_key, setting_value) VALUES (?, ?)', ('workforce_on_shift', workforce))
+        db.commit()
+        flash(f'Workforce on shift updated to {workforce}!', 'success')
+    elif stat_type == 'capacity':
+        # Update stage capacities
+        stages = db.execute('SELECT id FROM inventory_stages').fetchall()
+        for stage in stages:
+            capacity_key = f'capacity_{stage["id"]}'
+            if capacity_key in request.form:
+                new_capacity = int(request.form.get(capacity_key, 10000))
+                db.execute('UPDATE inventory_stages SET capacity = ? WHERE id = ?', (new_capacity, stage['id']))
+        db.commit()
+        flash('Stage capacities updated!', 'success')
     
     return redirect(url_for('inventory'))
 
@@ -1309,6 +1421,7 @@ def employees():
 
 @app.route('/employees/add', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def add_employee():
     if request.method == 'POST':
         db = get_db()
@@ -1331,6 +1444,7 @@ def add_employee():
 
 @app.route('/employees/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager')
 def edit_employee(id):
     db = get_db()
     employee = db.execute('SELECT * FROM employees WHERE id = ?', (id,)).fetchone()
@@ -1372,6 +1486,7 @@ def view_employee(id):
 
 @app.route('/employees/delete/<int:id>')
 @login_required
+@role_required('Manager')
 def delete_employee(id):
     db = get_db()
     db.execute('DELETE FROM employees WHERE id = ?', (id,))
@@ -1502,24 +1617,48 @@ def tasks():
     db = get_db()
     status_filter = request.args.get('status', '')
     
-    if status_filter:
-        all_tasks = db.execute('''
-            SELECT t.*, e.name as employee_name FROM tasks t
-            LEFT JOIN employees e ON t.assigned_to = e.id
-            WHERE t.status = ?
-            ORDER BY t.created_at DESC
-        ''', (status_filter,)).fetchall()
+    # For employees, only show their own tasks
+    if session.get('user_role') == 'Employee' and session.get('employee_id'):
+        employee = db.execute('SELECT id FROM employees WHERE employee_id = ?', 
+                             (session.get('employee_id'),)).fetchone()
+        if employee:
+            if status_filter:
+                all_tasks = db.execute('''
+                    SELECT t.*, e.name as employee_name FROM tasks t
+                    LEFT JOIN employees e ON t.assigned_to = e.id
+                    WHERE t.status = ? AND t.assigned_to = ?
+                    ORDER BY t.created_at DESC
+                ''', (status_filter, employee['id'])).fetchall()
+            else:
+                all_tasks = db.execute('''
+                    SELECT t.*, e.name as employee_name FROM tasks t
+                    LEFT JOIN employees e ON t.assigned_to = e.id
+                    WHERE t.assigned_to = ?
+                    ORDER BY t.created_at DESC
+                ''', (employee['id'],)).fetchall()
+        else:
+            all_tasks = []
     else:
-        all_tasks = db.execute('''
-            SELECT t.*, e.name as employee_name FROM tasks t
-            LEFT JOIN employees e ON t.assigned_to = e.id
-            ORDER BY t.created_at DESC
-        ''').fetchall()
+        # Managers and Supervisors can see all tasks
+        if status_filter:
+            all_tasks = db.execute('''
+                SELECT t.*, e.name as employee_name FROM tasks t
+                LEFT JOIN employees e ON t.assigned_to = e.id
+                WHERE t.status = ?
+                ORDER BY t.created_at DESC
+            ''', (status_filter,)).fetchall()
+        else:
+            all_tasks = db.execute('''
+                SELECT t.*, e.name as employee_name FROM tasks t
+                LEFT JOIN employees e ON t.assigned_to = e.id
+                ORDER BY t.created_at DESC
+            ''').fetchall()
     
     return render_template('tasks.html', tasks=all_tasks, current_status=status_filter)
 
 @app.route('/employees/tasks/add', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager', 'Supervisor')
 def add_task():
     db = get_db()
     employees_list = db.execute('SELECT * FROM employees WHERE is_active = 1').fetchall()
@@ -1550,6 +1689,7 @@ def add_task():
 
 @app.route('/employees/tasks/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
+@role_required('Manager', 'Supervisor')
 def edit_task(id):
     db = get_db()
     task = db.execute('SELECT * FROM tasks WHERE id = ?', (id,)).fetchone()
@@ -1586,6 +1726,7 @@ def edit_task(id):
 
 @app.route('/employees/tasks/delete/<int:id>')
 @login_required
+@role_required('Manager', 'Supervisor')
 def delete_task(id):
     db = get_db()
     db.execute('DELETE FROM tasks WHERE id = ?', (id,))
@@ -1598,6 +1739,7 @@ def delete_task(id):
 
 @app.route('/employees/tasks/rotation')
 @login_required
+@role_required('Manager', 'Supervisor')
 def task_rotation():
     """Display task rotation matrix showing fair distribution"""
     db = get_db()
@@ -1607,8 +1749,12 @@ def task_rotation():
         SELECT * FROM employees WHERE is_active = 1 ORDER BY name
     ''').fetchall()
     
-    # Get task types (priorities as task categories)
-    task_types = ['Loading', 'Delivery', 'Quality Check', 'Packaging', 'Maintenance', 'General']
+    # Get task types from database
+    task_types_rows = db.execute('SELECT name FROM task_types WHERE is_active = 1 ORDER BY sort_order').fetchall()
+    task_types = [t['name'] for t in task_types_rows] if task_types_rows else ['Loading', 'Delivery', 'Quality Check', 'Packaging', 'Maintenance', 'General']
+    
+    # Get all task types for editing
+    all_task_types = db.execute('SELECT * FROM task_types ORDER BY sort_order').fetchall()
     
     # Build rotation matrix - count tasks per employee per type (last 7 days - weekly rotation)
     rotation_matrix = []
@@ -1665,6 +1811,7 @@ def task_rotation():
                          employees=employees_list,
                          rotation_matrix=rotation_matrix,
                          task_types=task_types,
+                         all_task_types=all_task_types,
                          suggestions=suggestions)
 
 
@@ -1739,7 +1886,9 @@ def get_rotation_matrix():
     """API to get the full rotation matrix data"""
     db = get_db()
     
-    task_types = ['Loading', 'Delivery', 'Quality Check', 'Packaging', 'Maintenance', 'General']
+    # Get task types from database
+    task_types_rows = db.execute('SELECT name FROM task_types WHERE is_active = 1 ORDER BY sort_order').fetchall()
+    task_types = [t['name'] for t in task_types_rows] if task_types_rows else ['Loading', 'Delivery', 'Quality Check', 'Packaging', 'Maintenance', 'General']
     
     employees = db.execute('''
         SELECT * FROM employees WHERE is_active = 1 ORDER BY name
@@ -1768,6 +1917,59 @@ def get_rotation_matrix():
         'task_types': task_types,
         'matrix': matrix
     })
+
+
+@app.route('/employees/tasks/types', methods=['GET', 'POST'])
+@login_required
+@role_required('Manager', 'Supervisor')
+def manage_task_types():
+    """Manage task types - add, edit, delete"""
+    db = get_db()
+    
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        
+        if action == 'add':
+            name = request.form.get('name', '').strip()
+            if name:
+                try:
+                    max_order = db.execute('SELECT MAX(sort_order) FROM task_types').fetchone()[0] or 0
+                    db.execute('INSERT INTO task_types (name, sort_order) VALUES (?, ?)', (name, max_order + 1))
+                    db.commit()
+                    flash(f'Task type "{name}" added!', 'success')
+                except:
+                    flash(f'Task type "{name}" already exists!', 'warning')
+        
+        elif action == 'delete':
+            type_id = request.form.get('type_id')
+            if type_id:
+                db.execute('DELETE FROM task_types WHERE id = ?', (type_id,))
+                db.commit()
+                flash('Task type deleted!', 'success')
+        
+        elif action == 'toggle':
+            type_id = request.form.get('type_id')
+            if type_id:
+                current = db.execute('SELECT is_active FROM task_types WHERE id = ?', (type_id,)).fetchone()
+                if current:
+                    new_status = 0 if current['is_active'] else 1
+                    db.execute('UPDATE task_types SET is_active = ? WHERE id = ?', (new_status, type_id))
+                    db.commit()
+                    flash('Task type status updated!', 'success')
+        
+        elif action == 'rename':
+            type_id = request.form.get('type_id')
+            new_name = request.form.get('new_name', '').strip()
+            if type_id and new_name:
+                db.execute('UPDATE task_types SET name = ? WHERE id = ?', (new_name, type_id))
+                db.commit()
+                flash(f'Task type renamed to "{new_name}"!', 'success')
+        
+        return redirect(url_for('task_rotation'))
+    
+    # GET - return task types as JSON
+    all_types = db.execute('SELECT * FROM task_types ORDER BY sort_order').fetchall()
+    return jsonify([dict(t) for t in all_types])
 
 
 # ==================== SALARY ====================
@@ -2060,21 +2262,21 @@ def api_dashboard_stats():
     processing_orders = db.execute("SELECT COUNT(*) FROM orders WHERE status = 'Processing'").fetchone()[0]
     completed_orders = db.execute("SELECT COUNT(*) FROM orders WHERE status = 'Completed'").fetchone()[0]
     
-    # Monthly order stats (last 6 months)
-    monthly_orders = []
-    for i in range(5, -1, -1):
-        month_date = today - timedelta(days=i*30)
-        month_str = month_date.strftime('%Y-%m')
+    # Daily order stats (last 30 days)
+    daily_orders = []
+    for i in range(29, -1, -1):
+        day_date = today - timedelta(days=i)
+        day_str = day_date.strftime('%Y-%m-%d')
         count = db.execute('''
             SELECT COUNT(*) FROM orders 
-            WHERE strftime('%Y-%m', order_date) = ?
-        ''', (month_str,)).fetchone()[0]
+            WHERE DATE(order_date) = ?
+        ''', (day_str,)).fetchone()[0]
         revenue = db.execute('''
             SELECT COALESCE(SUM(total_amount), 0) FROM orders 
-            WHERE strftime('%Y-%m', order_date) = ?
-        ''', (month_str,)).fetchone()[0]
-        monthly_orders.append({
-            'month': month_date.strftime('%b'),
+            WHERE DATE(order_date) = ?
+        ''', (day_str,)).fetchone()[0]
+        daily_orders.append({
+            'month': day_date.strftime('%d %b'),
             'count': count,
             'revenue': revenue
         })
@@ -2096,7 +2298,7 @@ def api_dashboard_stats():
             'processing': processing_orders,
             'completed': completed_orders
         },
-        'monthly_orders': monthly_orders,
+        'monthly_orders': daily_orders,
         'tasks': {
             'total': total_tasks,
             'completed': completed_tasks,

@@ -7,9 +7,14 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fas fa-sync-alt"></i> Task Rotation Matrix</h2>
-        <a href="{{ url_for('tasks') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Tasks
-        </a>
+        <div class="header-actions" style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="openTaskTypesModal()">
+                <i class="fas fa-cog"></i> Manage Task Types
+            </button>
+            <a href="{{ url_for('tasks') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Tasks
+            </a>
+        </div>
     </div>
     <div class="card-body">
         <!-- Info Banner -->
@@ -180,6 +185,94 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Manage Task Types Modal -->
+<div id="taskTypesModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="close-modal" onclick="closeTaskTypesModal()">&times;</span>
+        <h3><i class="fas fa-cog"></i> Manage Task Types</h3>
+        
+        <!-- Add New Task Type -->
+        <form method="POST" action="{{ url_for('manage_task_types') }}" style="margin-bottom: 20px;">
+            <input type="hidden" name="action" value="add">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" name="name" placeholder="Enter new task type name" class="form-control" style="flex: 1;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+        </form>
+        
+        <!-- Existing Task Types -->
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tt in all_task_types %}
+                    <tr>
+                        <td>
+                            <span class="task-type-name" id="type-name-{{ tt.id }}">{{ tt.name }}</span>
+                            <input type="text" id="type-input-{{ tt.id }}" value="{{ tt.name }}" style="display: none;" class="form-control">
+                        </td>
+                        <td>
+                            <span class="badge badge-{% if tt.is_active %}success{% else %}secondary{% endif %}">
+                                {{ 'Active' if tt.is_active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                <button class="btn btn-sm btn-outline" onclick="toggleEdit({{ tt.id }})" id="edit-btn-{{ tt.id }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('manage_task_types') }}" style="display: inline;">
+                                    <input type="hidden" name="action" value="toggle">
+                                    <input type="hidden" name="type_id" value="{{ tt.id }}">
+                                    <button type="submit" class="btn btn-sm {% if tt.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                                        <i class="fas fa-{% if tt.is_active %}pause{% else %}play{% endif %}"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('manage_task_types') }}" style="display: inline;" onsubmit="return confirm('Delete this task type?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="type_id" value="{{ tt.id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Rename form (hidden, shown when editing) -->
+                    <tr id="rename-row-{{ tt.id }}" style="display: none;">
+                        <td colspan="3">
+                            <form method="POST" action="{{ url_for('manage_task_types') }}" style="display: flex; gap: 10px;">
+                                <input type="hidden" name="action" value="rename">
+                                <input type="hidden" name="type_id" value="{{ tt.id }}">
+                                <input type="text" name="new_name" value="{{ tt.name }}" class="form-control" style="flex: 1;">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fas fa-check"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleEdit({{ tt.id }})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" class="btn btn-secondary" onclick="closeTaskTypesModal()">Close</button>
+        </div>
     </div>
 </div>
 
@@ -465,10 +558,33 @@ function closeModal() {
     document.getElementById('assignModal').style.display = 'none';
 }
 
+function openTaskTypesModal() {
+    document.getElementById('taskTypesModal').style.display = 'flex';
+}
+
+function closeTaskTypesModal() {
+    document.getElementById('taskTypesModal').style.display = 'none';
+}
+
+function toggleEdit(typeId) {
+    const row = document.getElementById('rename-row-' + typeId);
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+    } else {
+        row.style.display = 'none';
+    }
+}
+
 // Close modal on outside click
 document.getElementById('assignModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeModal();
+    }
+});
+
+document.getElementById('taskTypesModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeTaskTypesModal();
     }
 });
 
