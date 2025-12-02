@@ -868,10 +868,11 @@ def edit_order(id):
         total = product['price_per_unit'] * quantity
         
         delivery_date = parse_date(request.form.get('delivery_date', ''))
+        order_date = parse_date(request.form.get('order_date', ''))
         
         db.execute('''
             UPDATE orders SET customer_name=?, customer_phone=?, customer_address=?,
-                            product_id=?, quantity=?, total_amount=?, status=?, delivery_date=?, notes=?
+                            product_id=?, quantity=?, total_amount=?, status=?, delivery_date=?, order_date=?, notes=?
             WHERE id=?
         ''', (
             request.form['customer_name'],
@@ -882,6 +883,7 @@ def edit_order(id):
             total,
             request.form.get('status', 'Pending'),
             delivery_date,
+            order_date,
             request.form.get('notes', ''),
             id
         ))

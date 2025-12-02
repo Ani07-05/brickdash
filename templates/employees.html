@@ -66,7 +66,6 @@
                         <th>Name</th>
                         <th>Role</th>
                         <th>Phone no / Email</th>
-                        <th>Project</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -88,7 +87,6 @@
                             {{ employee.phone or 'N/A' }}<br>
                             <span style="color: var(--text-tertiary); font-size: 0.8rem;">{{ employee.email if employee.email else '' }}</span>
                         </td>
-                        <td style="color: var(--text-secondary);">{{ employee.department if employee.department else 'BrickDash' }}</td>
                         <td>
                             {% if employee.is_active %}
                             <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Active</span>
