@@ -35,11 +35,11 @@
             </form>
         </div>
         
-        <form method="POST" action="{{ url_for('save_attendance') }}">
+        <form method="POST" action="{{ url_for('save_attendance') }}" class="attendance-form">
             <input type="hidden" name="attendance_date" value="{{ selected_date.strftime('%d-%m-%Y') }}">
             
             {% if employees %}
-            <div class="table-container">
+            <div class="table-container table-responsive">
                 <table>
                     <thead>
                         <tr>

@@ -122,6 +122,9 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="page-header">
+                <button class="sidebar-toggle" aria-label="Toggle navigation">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <h1>{% block header %}Dashboard{% endblock %}</h1>
                 <div class="header-actions">
                     {% if session.get('user_id') %}
@@ -216,6 +219,29 @@
                         alert.remove();
                     }, 300);
                 }, 3000);
+            });
+        });
+    </script>
+    <script>
+        // Mobile sidebar toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.querySelector('.sidebar-toggle');
+            const container = document.querySelector('.app-container');
+            if (toggle) {
+                toggle.addEventListener('click', function() {
+                    container.classList.toggle('sidebar-open');
+                });
+            }
+
+            // Close sidebar when clicking outside on small screens
+            document.addEventListener('click', function(e) {
+                if (container.classList.contains('sidebar-open')) {
+                    const sidebar = document.querySelector('.sidebar');
+                    const header = document.querySelector('.page-header');
+                    if (!sidebar.contains(e.target) && !header.contains(e.target)) {
+                        container.classList.remove('sidebar-open');
+                    }
+                }
             });
         });
     </script>

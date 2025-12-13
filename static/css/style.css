@@ -388,6 +388,28 @@ td.currency {
     padding: 32px;
 }
 
+/* ==================== RESPONSIVE UTILITIES ==================== */
+.sidebar-toggle {
+    display: none;
+    border: 1px solid #3d3d5c;
+    background: #2d2d44;
+    color: #ffffff;
+    border-radius: var(--radius);
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+}
+
+.sidebar-toggle i { font-size: 1.1rem; }
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 /* ==================== CARDS ==================== */
 
 .card {
@@ -1142,50 +1164,43 @@ textarea.form-control {
 }
 
 @media (max-width: 768px) {
+    /* Off-canvas sidebar */
     .sidebar {
-        width: 70px;
+        left: -260px;
+        position: fixed;
+        top: 0;
+        height: 100vh;
+        transition: left 0.25s ease;
+        width: 260px;
     }
 
-    .sidebar-header .logo,
-    .nav-item span,
-    .nav-section-title,
-    .sidebar-user-details {
-        display: none;
-    }
+    .app-container.sidebar-open .sidebar { left: 0; }
 
-    .sidebar-header {
-        justify-content: center;
-        padding: 20px 10px;
-    }
+    .main-content { margin-left: 0; }
 
-    .nav-item {
-        justify-content: center;
-        padding: 12px;
-    }
+    .page-header { padding: 16px; gap: 12px; }
+    .page-header h1 { font-size: 1.25rem; }
+    .header-actions { gap: 12px; }
+    .sidebar-toggle { display: inline-flex; }
+    .content-area { padding: 16px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .user-avatar { width: 32px; height: 32px; font-size: 0.85rem; }
 
-    .nav-item i {
-        margin: 0;
-    }
+    /* Tighten vertical rhythm on mobile */
+    .card { margin-bottom: 16px; border-radius: var(--radius); }
+    .card-header { padding: 14px 16px; }
+    .card-body { padding: 16px; }
+    .stats-grid { gap: 12px; margin-bottom: 16px; }
+    .quick-actions { gap: 8px; margin-bottom: 12px; }
+    .btn { padding: 8px 16px; }
+}
 
-    .main-content {
-        margin-left: 70px;
-    }
+@media (max-width: 480px) {
+    .page-header h1 { display: none; }
+    .header-actions i { font-size: 1rem; }
 
-    .page-header {
-        padding: 20px 16px;
-    }
-
-    .page-header h1 {
-        font-size: 1.4rem;
-    }
-
-    .content-area {
-        padding: 20px 16px;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
+    .card-header h2 { font-size: 1rem; }
+    .toast { min-width: 280px; }
 }
 
 /* ==================== ADDITIONAL COMPONENTS ==================== */
