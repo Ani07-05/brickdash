@@ -129,8 +129,38 @@ if DB_BACKEND == 'sqlite':
 
 # ==================== DATABASE HELPERS ====================
 
+class DualAccessRow:
+    """Row that supports both dict-style row['key'] and tuple-style row[0] access"""
+    def __init__(self, data):
+        if isinstance(data, dict):
+            self._dict = data
+            self._tuple = tuple(data.values())
+        else:
+            self._tuple = tuple(data)
+            self._dict = {}
+    
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._tuple[key]
+        return self._dict[key]
+    
+    def __iter__(self):
+        return iter(self._tuple)
+    
+    def __len__(self):
+        return len(self._tuple)
+    
+    def keys(self):
+        return self._dict.keys()
+    
+    def values(self):
+        return self._tuple
+    
+    def items(self):
+        return self._dict.items()
+
 class PostgresCursorWrapper:
-    """Wrap psycopg cursor to return tuples instead of dicts for SQLite compatibility"""
+    """Wrap psycopg cursor to return rows supporting both int and str indexing"""
     def __init__(self, cursor):
         self._cursor = cursor
     
@@ -138,17 +168,15 @@ class PostgresCursorWrapper:
         row = self._cursor.fetchone()
         if row is None:
             return None
-        # Convert dict to tuple for SQLite-compatible indexing
-        return tuple(row.values()) if isinstance(row, dict) else row
+        return DualAccessRow(row)
     
     def fetchall(self):
         rows = self._cursor.fetchall()
-        # Convert list of dicts to list of tuples
-        return [tuple(r.values()) if isinstance(r, dict) else r for r in rows]
+        return [DualAccessRow(r) for r in rows]
     
     def fetchmany(self, size=None):
         rows = self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
-        return [tuple(r.values()) if isinstance(r, dict) else r for r in rows]
+        return [DualAccessRow(r) for r in rows]
     
     def __getattr__(self, name):
         # Delegate all other attributes to the wrapped cursor
