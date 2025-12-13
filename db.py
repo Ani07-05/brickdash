@@ -28,6 +28,11 @@ class DB:
         self.dsn = dsn or os.environ.get(_SUPABASE_URL_ENV)
         if not self.dsn:
             raise RuntimeError(f"Environment variable '{_SUPABASE_URL_ENV}' is not set.")
+        # Sanitize DSN to avoid issues like trailing newlines or accidental quotes
+        cleaned = (self.dsn or "").strip()
+        if cleaned.startswith("\"") and cleaned.endswith("\""):
+            cleaned = cleaned[1:-1]
+        self.dsn = cleaned
         print(f"[DB] Using connection string: {self.dsn[:30]}...")
 
     def connect(self):
@@ -42,9 +47,12 @@ class DB:
             
             return psycopg.connect(conn_params, row_factory=dict_row)
         except Exception as e:
-            print(f"[DB] Connection failed: {e}")
-            print(f"[DB] Check your SUPABASE_DB_URL and network connectivity")
-            print(f"[DB] Common issues: firewall blocking port 5432, VPN required, or IPv6 connectivity")
+            # Provide clearer hint when sslmode contains stray quotes/newlines
+            if "sslmode" in str(e).lower():
+                print("[DB] Connection failed due to sslmode. Ensure the DSN ends with '?sslmode=require' without quotes and no trailing whitespace.")
+            print("[DB] Connection failed:", e)
+            print("[DB] Check your SUPABASE_DB_URL and network connectivity")
+            print("[DB] Common issues: firewall blocking port 5432/6543, VPN required, or IPv6 connectivity")
             raise
 
     def get_conn(self):
