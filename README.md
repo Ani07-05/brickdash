@@ -54,7 +54,7 @@ A comprehensive workforce, order, and inventory management system designed for t
 ## Tech Stack
 
 - **Backend**: Python Flask
-- **Database**: SQLite
+ - **Database**: Supabase Postgres (via psycopg3)
 - **Frontend**: HTML, CSS, JavaScript (Jinja2 templates)
 - **Icons**: Font Awesome
 
@@ -79,7 +79,7 @@ A comprehensive workforce, order, and inventory management system designed for t
 brickdash/
 ├── app.py                 # Main Flask application
 ├── requirements.txt       # Python dependencies
-├── brickdash.db          # SQLite database (auto-created)
+ ├── db.py                 # Postgres connection + schema init
 ├── static/
 │   └── css/
 │       └── style.css     # Stylesheet
@@ -122,7 +122,32 @@ The application comes pre-loaded with sample data:
 ## Notes
 
 - The database file (`brickdash.db`) is created automatically on first run
-- All data is stored locally in SQLite
+ - All data is stored in Supabase Postgres
+
+## Supabase Setup
+- Create a Supabase project and get the Postgres connection string (DSN).
+- Set environment variable `SUPABASE_DB_URL` locally and in deployment:
+
+Windows (PowerShell):
+
+```powershell
+$env:SUPABASE_DB_URL = "postgres://USER:PASSWORD@HOST:PORT/DBNAME"
+```
+
+Linux/macOS:
+
+```bash
+export SUPABASE_DB_URL="postgres://USER:PASSWORD@HOST:PORT/DBNAME"
+```
+
+## Initialize Schema
+- Ensure dependencies are installed, then run:
+
+```bash
+python db.py
+```
+
+This will create the required tables in Postgres if they do not exist.
 - No external database server required
 
 ## Light Theme

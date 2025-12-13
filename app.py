@@ -6,11 +6,26 @@ Flask Application with SQLite Database (No external dependencies beyond Flask)
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g, session, make_response
 from functools import wraps
 import sqlite3
+from typing import Optional
 from datetime import datetime, date, timedelta
 import csv
 import io
 import os
 import hashlib
+from pathlib import Path
+
+# Load .env file if present
+def load_env():
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+load_env()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'brickdash-secret-key-2025')
@@ -20,6 +35,16 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'brickdash.db')
+# Backend selection: 'sqlite' (default) or 'postgres'
+DB_BACKEND = os.environ.get('DB_BACKEND', 'postgres' if os.environ.get('SUPABASE_DB_URL') else 'sqlite')
+
+postgres_db: Optional[object] = None
+if DB_BACKEND == 'postgres':
+    try:
+        from db import DB  # local helper using psycopg3
+        postgres_db = DB()
+    except Exception as e:
+        raise RuntimeError(f"Postgres backend selected but failed to init: {e}")
 
 def hash_password(password):
     """Hash password using SHA256"""
@@ -95,19 +120,55 @@ def convert_datetime(val):
     """Convert ISO format string to datetime"""
     return datetime.fromisoformat(val.decode())
 
-# Register the adapters and converters
-sqlite3.register_adapter(date, adapt_date)
-sqlite3.register_adapter(datetime, adapt_datetime)
-sqlite3.register_converter("DATE", convert_date)
-sqlite3.register_converter("TIMESTAMP", convert_datetime)
+# Register the adapters and converters (SQLite only)
+if DB_BACKEND == 'sqlite':
+    sqlite3.register_adapter(date, adapt_date)
+    sqlite3.register_adapter(datetime, adapt_datetime)
+    sqlite3.register_converter("DATE", convert_date)
+    sqlite3.register_converter("TIMESTAMP", convert_datetime)
 
 # ==================== DATABASE HELPERS ====================
 
+class PostgresConnectionWrapper:
+    """Wrapper to make psycopg connection behave like sqlite3 for execute()"""
+    def __init__(self, conn):
+        self._conn = conn
+        self._cursor = None
+    
+    def execute(self, sql, params=None):
+        """Execute query with automatic ? to %s conversion"""
+        sql = sql.replace('?', '%s')
+        self._cursor = self._conn.cursor()
+        if params:
+            self._cursor.execute(sql, params)
+        else:
+            self._cursor.execute(sql)
+        return self._cursor
+    
+    def commit(self):
+        self._conn.commit()
+    
+    def close(self):
+        if self._cursor:
+            self._cursor.close()
+        self._conn.close()
+    
+    def cursor(self):
+        return self._conn.cursor()
+
 def get_db():
-    """Get database connection"""
-    if 'db' not in g:
+    """Get database connection for current backend."""
+    if 'db' in g and g.db:
+        return g.db
+    if DB_BACKEND == 'sqlite':
         g.db = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
         g.db.row_factory = sqlite3.Row
+        return g.db
+    # Postgres via psycopg3 - wrap for compatibility
+    if not postgres_db:
+        raise RuntimeError('Postgres DB helper not initialized')
+    conn = postgres_db.get_conn()
+    g.db = PostgresConnectionWrapper(conn)
     return g.db
 
 @app.teardown_appcontext
@@ -115,10 +176,20 @@ def close_db(exception):
     """Close database connection"""
     db = g.pop('db', None)
     if db is not None:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables - delegates to db.py for Postgres"""
+    if DB_BACKEND == 'postgres':
+        from db import init_schema
+        init_schema()
+        print("Postgres schema initialized via db.py")
+        return
+    
+    # SQLite fallback
     db = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
     cursor = db.cursor()
     
@@ -410,6 +481,24 @@ def init_db():
 
 
 # ==================== HELPER FUNCTIONS ====================
+
+def adapt_query(sql, params=None):
+    """Convert SQLite query syntax to Postgres if needed"""
+    if DB_BACKEND == 'postgres':
+        # Replace ? with %s for psycopg
+        sql = sql.replace('?', '%s')
+        # Replace AUTOINCREMENT with SERIAL (though we handle this in schema)
+        sql = sql.replace('AUTOINCREMENT', 'SERIAL')
+    return sql, params
+
+def execute_query(cursor, sql, params=None):
+    """Execute query with backend-specific syntax"""
+    sql, params = adapt_query(sql, params)
+    if params:
+        cursor.execute(sql, params)
+    else:
+        cursor.execute(sql)
+    return cursor
 
 def format_date(d):
     """Format date as dd-mm-yyyy"""
