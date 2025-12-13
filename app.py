@@ -129,6 +129,31 @@ if DB_BACKEND == 'sqlite':
 
 # ==================== DATABASE HELPERS ====================
 
+class PostgresCursorWrapper:
+    """Wrap psycopg cursor to return tuples instead of dicts for SQLite compatibility"""
+    def __init__(self, cursor):
+        self._cursor = cursor
+    
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        # Convert dict to tuple for SQLite-compatible indexing
+        return tuple(row.values()) if isinstance(row, dict) else row
+    
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        # Convert list of dicts to list of tuples
+        return [tuple(r.values()) if isinstance(r, dict) else r for r in rows]
+    
+    def fetchmany(self, size=None):
+        rows = self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
+        return [tuple(r.values()) if isinstance(r, dict) else r for r in rows]
+    
+    def __getattr__(self, name):
+        # Delegate all other attributes to the wrapped cursor
+        return getattr(self._cursor, name)
+
 class PostgresConnectionWrapper:
     """Wrapper to make psycopg connection behave like sqlite3 for execute()"""
     def __init__(self, conn):
@@ -146,11 +171,13 @@ class PostgresConnectionWrapper:
         # Convert parameter values: 1 -> True, 0 -> False for boolean context
         if params:
             params = tuple(True if p == 1 and isinstance(p, int) else False if p == 0 and isinstance(p, int) else p for p in params)
-        self._cursor = self._conn.cursor()
+        cursor = self._conn.cursor()
         if params:
-            self._cursor.execute(sql, params)
+            cursor.execute(sql, params)
         else:
-            self._cursor.execute(sql)
+            cursor.execute(sql)
+        # Wrap cursor to return tuples for compatibility
+        self._cursor = PostgresCursorWrapper(cursor)
         return self._cursor
     
     def commit(self):
