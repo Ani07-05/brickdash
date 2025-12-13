@@ -525,7 +525,7 @@ def init_db():
             ('BRK014', 'Gopi', 'Supervisor', '9876543216', 'Chennai', 16000, 1),
             ('BRK013', 'Selvam', 'Truck Driver', '9876543217', 'Chennai', 17000, 1),
             ('BRK012', 'Ramesh', 'Worker', '9876543218', 'Chennai', 15000, 1),
-            ('BRK011', 'Ravi', 'Worker', '9876543219', 'Chennai', 15000, 1),
+            ('BRK011', 'Ravi', 'Worker', '9876543219', 'Chennai', 15000, True),
         ]
         cursor.executemany('''
             INSERT INTO employees (employee_id, name, role, phone, address, salary, is_active)
@@ -727,7 +727,7 @@ def register():
         db.execute('''
             INSERT INTO employees (employee_id, name, role, phone, salary, is_active)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (employee_id, name, 'Worker', phone, 0, 1))
+        ''', (employee_id, name, 'Worker', phone, 0, True))
         
         emp_row = db.execute('SELECT id FROM employees WHERE employee_id = ?', (employee_id,)).fetchone()
         
@@ -735,7 +735,7 @@ def register():
         db.execute('''
             INSERT INTO users (username, password, role, employee_id, is_active)
             VALUES (?, ?, ?, ?, ?)
-        ''', (username, hash_password(password), 'Employee', emp_row['id'], 1))
+        ''', (username, hash_password(password), 'Employee', emp_row['id'], True))
         
         db.commit()
         flash(f'Account created successfully! Your Employee ID is {employee_id}. Please login.', 'success')
@@ -1588,7 +1588,7 @@ def add_employee():
             request.form.get('phone', ''),
             request.form.get('address', ''),
             float(request.form.get('salary', 0)),
-            1 if request.form.get('is_active') == 'on' else 0
+            True if request.form.get('is_active') == 'on' else False
         ))
         db.commit()
         flash('Employee added successfully!', 'success')
