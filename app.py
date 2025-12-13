@@ -191,20 +191,19 @@ class PostgresConnectionWrapper:
     def execute(self, sql, params=None):
         """Execute query with automatic ? to %s conversion and boolean fix"""
         sql = sql.replace('?', '%s')
-        # Replace SQLite boolean comparisons with Postgres syntax
+        # Replace SQLite boolean comparisons with Postgres syntax (only in WHERE/comparisons)
+        # Be careful not to replace numbers in VALUES/SET clauses
         sql = sql.replace(' = 1', ' = TRUE')
         sql = sql.replace(' = 0', ' = FALSE')
         sql = sql.replace('!= 1', '!= TRUE')
         sql = sql.replace('!= 0', '!= FALSE')
-        # Convert parameter values: 1 -> True, 0 -> False for boolean context
-        if params:
-            params = tuple(True if p == 1 and isinstance(p, int) else False if p == 0 and isinstance(p, int) else p for p in params)
+        # Don't convert parameter values - let Postgres handle type casting naturally
         cursor = self._conn.cursor()
         if params:
             cursor.execute(sql, params)
         else:
             cursor.execute(sql)
-        # Wrap cursor to return tuples for compatibility
+        # Wrap cursor to support both int and string indexing
         self._cursor = PostgresCursorWrapper(cursor)
         return self._cursor
     
