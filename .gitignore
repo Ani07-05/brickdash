@@ -12,7 +12,7 @@ dist/
 build/
 
 # Database
-*.db
+# *.db
 *.sqlite
 *.sqlite3
 
